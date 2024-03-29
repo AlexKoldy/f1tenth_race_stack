@@ -10,7 +10,8 @@ class TrajectoryBuilder:
         self,
         alpha_min: float,
         alpha_max: float,
-        a_x_max: float,
+        a_x_accel_max: float,
+        a_x_decel_max: float,
         a_y_max: float,
         v_x_min: float,
         v_x_max: float,
@@ -21,7 +22,8 @@ class TrajectoryBuilder:
         self.alpha_max = alpha_max
 
         # Set maximum lateral and longitudinal acceleration
-        self.a_x_max = a_x_max  # [m/s^2]
+        self.a_x_accel_max = a_x_accel_max  # [m/s^2]
+        self.a_x_decel_max = a_x_decel_max  # [m/s^2]
         self.a_y_max = a_y_max  # [m/s^2]
 
         # Set longitudinal velocity limit
@@ -60,6 +62,9 @@ class TrajectoryBuilder:
             velocity_profile, self.paths[-1], curvatures
         )
         self.velocity_profile = velocity_profile
+
+        # TODO: this is cheating
+        self.velocity_profile[-15:] = self.v_x_max
 
         return (self.paths[-1], velocity_profile)
 
@@ -298,6 +303,7 @@ class TrajectoryBuilder:
             label="original",
         )
         for i, path in enumerate(self.paths[1:]):
+            plt.scatter(path[0, 0], path[1, 0])
             plt.plot(
                 path[0, :],
                 path[1, :],
@@ -367,14 +373,16 @@ class TrajectoryBuilder:
 
         return (velocity_profile, curvatures)
 
-    def calculate_accelerations(self, v: float, kappa: float) -> Tuple[float, float]:
+    def calculate_accelerations(
+        self, v_x: float, a_x_max: float, kappa: float
+    ) -> Tuple[float, float]:
         """"""
         # Calculate lateral acceleration
-        a_y = v**2 * np.abs(kappa)  # [m/s^2]
+        a_y = v_x**2 * np.abs(kappa)  # [m/s^2]
         a_y = np.min([self.a_y_max, a_y])
 
         # Calculate longitudinal accleration
-        a_x = self.a_x_max * np.sqrt(1 - (a_y / self.a_y_max) ** 2)  # [m/s^2]
+        a_x = a_x_max * np.sqrt(1 - (a_y / self.a_y_max) ** 2)  # [m/s^2]
 
         return (a_x, a_y)
 
@@ -403,7 +411,7 @@ class TrajectoryBuilder:
             while i < num_waypoints - 1:
                 # Calculate accelerations
                 a_x, a_y = self.calculate_accelerations(
-                    velocity_profile[i], curvatures[i]
+                    velocity_profile[i], self.a_x_accel_max, curvatures[i]
                 )
 
                 # Calculate distance between waypoints
@@ -456,7 +464,7 @@ class TrajectoryBuilder:
             while i > 0:
                 # Calculate "accelerations"
                 a_x, a_y = self.calculate_accelerations(
-                    velocity_profile[i], curvatures[i]
+                    velocity_profile[i], self.a_x_decel_max, curvatures[i]
                 )
 
                 # Calculate distance between waypoints

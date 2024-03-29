@@ -3,4 +3,6 @@ install/
 log/
 src/f1tenth_gym_ros/
 src/rig_reconfigure/
+src/particle_filter
 .vscode/
+

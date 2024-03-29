@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 import numpy as np
+import os
 
 # TODO: fix this so that it points to the proper place
 # from planner.planner.global_planners.trajectory_builder import TrajectoryBuilder
@@ -16,38 +17,21 @@ class GlobalPlannerNode(Node):
         super().__init__("global_planner_node")
 
         # Declare trajectory builder parameters
-        self.declare_parameter("alpha_min", -0.01)
-        self.declare_parameter("alpha_max", 0.25)
-        self.declare_parameter("num_waypoints", 200)
+        self.declare_parameter("alpha_min", -0.1)
+        self.declare_parameter("alpha_max", 0.1)
+        self.declare_parameter("num_waypoints", 1500)
         self.declare_parameter("v_x_min", 2.0)
-        self.declare_parameter("v_x_max", 5.0)
-        self.declare_parameter("a_x_max", 3.0)
-        self.declare_parameter("a_y_max", 3.0)
+        self.declare_parameter("v_x_max", 7.0)
+        self.declare_parameter("a_x_accel_max", 10.0)
+        self.declare_parameter("a_x_decel_max", 4.0)
+        self.declare_parameter("a_y_max", 10.0)
         self.declare_parameter("num_iterations", 1)
-        self.declare_parameter("optimized_trajectory_path", None)
+        self.declare_parameter("trajectory_load_file", "")
+        self.declare_parameter("trajectory_save_file", "")
+        self.declare_parameter("reoptimize", True)
 
-        # Get the values from the trajectory builder
-        self.alpha_min = (
-            self.get_parameter("alpha_min").get_parameter_value().double_value
-        )
-        self.alpha_max = (
-            self.get_parameter("alpha_max").get_parameter_value().double_value
-        )
-        self.num_waypoints = (
-            self.get_parameter("num_waypoints").get_parameter_value().integer_value
-        )
-        self.v_x_min = self.get_parameter("v_x_min").get_parameter_value().double_value
-        self.v_x_max = self.get_parameter("v_x_max").get_parameter_value().double_value
-        self.a_x_max = self.get_parameter("a_x_max").get_parameter_value().double_value
-        self.a_y_max = self.get_parameter("a_y_max").get_parameter_value().double_value
-        self.num_iterations = (
-            self.get_parameter("num_iterations").get_parameter_value().integer_value
-        )
-        self.optimized_trajectory_path = (
-            self.get_parameter("optimized_trajectory_path")
-            .get_parameter_value()
-            .string_value
-        )
+        # Set up parameters
+        self.set_parameters()
 
         # Set up topics
         self.path_topic = "/planner/global/path"
@@ -60,11 +44,70 @@ class GlobalPlannerNode(Node):
         )
         self.timer = self.create_timer(1.0, self.timer_callback)
 
+        # If we have a valid trajectory file, we can load it
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        trajectory_directory = os.path.join(current_directory, "..", "trajectories")
+        trajectory_load_file = os.path.join(
+            trajectory_directory, self.trajectory_load_file
+        )
+        try:
+            trajectory_data = np.load(trajectory_load_file)
+            self.path = trajectory_directory["path"]
+            self.velocity_profile = trajectory_load_file["velocity_profile"]
+        except:
+            raise Exception(
+                f"Either invalid or unfound trajectory file: {trajectory_load_file}"
+            )
+
+        # Perform initial trajectory optimization if specified
+        if self.reoptimize:
+            self.generate_trajectory()
+
+    def set_parameters(self) -> None:
+        """"""
+        self.alpha_min = (
+            self.get_parameter("alpha_min").get_parameter_value().double_value
+        )
+        self.alpha_max = (
+            self.get_parameter("alpha_max").get_parameter_value().double_value
+        )
+        self.num_waypoints = (
+            self.get_parameter("num_waypoints").get_parameter_value().integer_value
+        )
+        self.v_x_min = self.get_parameter("v_x_min").get_parameter_value().double_value
+        self.v_x_max = self.get_parameter("v_x_max").get_parameter_value().double_value
+        self.a_x_accel_max = (
+            self.get_parameter("a_x_accel_max").get_parameter_value().double_value
+        )
+        self.a_x_decel_max = (
+            self.get_parameter("a_x_decel_max").get_parameter_value().double_value
+        )
+        self.a_y_max = self.get_parameter("a_y_max").get_parameter_value().double_value
+        self.num_iterations = (
+            self.get_parameter("num_iterations").get_parameter_value().integer_value
+        )
+        self.trajectory_load_file = (
+            self.get_parameter("trajectory_load_file")
+            .get_parameter_value()
+            .string_value
+        )
+        self.trajectory_save_file = (
+            self.get_parameter("trajectory_save_file")
+            .get_parameter_value()
+            .string_value
+        )
+        self.reoptimize = (
+            self.get_parameter("reoptimize").get_parameter_value().bool_value
+        )
+
+    def generate_trajectory(self) -> None:
+        """"""
         # Set up the trajectory builder
         self.trajectory_builder = TrajectoryBuilder(
             self.alpha_min,
             self.alpha_max,
-            self.a_x_max,
+            self.a_x_accel_max,
+            self.a_x_decel_max,
             self.a_y_max,
             self.v_x_min,
             self.v_x_max,
@@ -86,7 +129,11 @@ class GlobalPlannerNode(Node):
 
     def timer_callback(self) -> None:
         """"""
-        self.publish_trajectory(self.path, self.velocity_profile)
+        self.set_parameters()
+
+        # If we have a trajectory, publish it
+        if self.path:
+            self.publish_trajectory(self.path, self.velocity_profile)
 
     def publish_trajectory(
         self, path: np.ndarray, velocity_profile: np.ndarray
