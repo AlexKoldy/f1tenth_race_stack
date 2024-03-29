@@ -25,6 +25,9 @@ class GeometricControllerNode : public rclcpp::Node {
     // Declare geometric controller type
     this->declare_parameter<std::string>("controller_name", "pure_pursuit");
 
+    // Declare parameter to determine sim or real
+    this->declare_parameter<std::string>("mode", "sim");
+
     // Set up controller
     if (this->get_parameter("controller_name").as_string() == "pure_pursuit") {
       controller_ = std::make_unique<PurePursuitController>(
@@ -43,6 +46,13 @@ class GeometricControllerNode : public rclcpp::Node {
     } else {
       // TODO: handle this
       ;
+    }
+
+    // Set the odometry topic based off the mode
+    if (this->get_parameter("mode").as_string() == "sim") {
+      this->pose_topic_ = "/ego_racecar/odom";
+    } else if (this->get_parameter("mode").as_string() == "real") {
+      this->pose_topic_ = "/pf/odom";
     }
 
     // Publishers, subscribers, timers
@@ -64,6 +74,9 @@ class GeometricControllerNode : public rclcpp::Node {
     lookahead_point_marker_pub_ =
         this->create_publisher<visualization_msgs::msg::Marker>(
             lookahead_marker_topic, 10);
+    timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(10),
+        std::bind(&GeometricControllerNode::timer_callback, this));
   }
 
  private:
@@ -71,7 +84,7 @@ class GeometricControllerNode : public rclcpp::Node {
   std::string path_topic_ = "/planner/global/path";
   std::string velocity_profile_topic_ = "/planner/global/velocity_profile";
   std::string drive_topic_ = "/drive";
-  std::string pose_topic_ = "/ego_racecar/odom";
+  std::string pose_topic_;
   std::string lookahead_marker_topic = "/controller/viz/lookahead_point";
 
   // Set up the controller object
@@ -85,10 +98,25 @@ class GeometricControllerNode : public rclcpp::Node {
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr pose_sub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
       lookahead_point_marker_pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
 
   // Flag to wait for a path before doing calculations
   bool path_received_ = false;
   bool velocity_profile_received_ = false;
+
+  /**
+   * @brief Sets the controller parameters.
+   */
+  void timer_callback() {
+    // Set the parameters of the controller
+    float alpha, beta, ell_min, ell_max, k_p;
+    this->get_parameter("alpha", alpha);
+    this->get_parameter("beta", beta);
+    this->get_parameter("ell_min", ell_min);
+    this->get_parameter("ell_max", ell_max);
+    this->get_parameter("k_p", k_p);
+    this->controller_->set_parameters(alpha, beta, ell_min, ell_max, k_p);
+  }
 
   /**
    * @brief Sets the path of the controller.

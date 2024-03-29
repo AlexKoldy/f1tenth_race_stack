@@ -6,11 +6,67 @@ from typing import Tuple, Dict
 
 
 class TrajectoryBuilder:
-    def __init__(self, alpha_min: float, alpha_max: float):
+    def __init__(
+        self,
+        alpha_min: float,
+        alpha_max: float,
+        a_x_accel_max: float,
+        a_x_decel_max: float,
+        a_y_max: float,
+        v_x_min: float,
+        v_x_max: float,
+    ) -> None:
         """"""
         # Set minimum and maximum deviations from centerline
         self.alpha_min = alpha_min
         self.alpha_max = alpha_max
+
+        # Set maximum lateral and longitudinal acceleration
+        self.a_x_accel_max = a_x_accel_max  # [m/s^2]
+        self.a_x_decel_max = a_x_decel_max  # [m/s^2]
+        self.a_y_max = a_y_max  # [m/s^2]
+
+        # Set longitudinal velocity limit
+        self.v_x_min = v_x_min  # [m/s^2]
+        self.v_x_max = v_x_max  # [m/s^2]
+
+        # Set up list of paths for plotting
+        self.paths = []
+
+        # Set up velocity profile
+        self.velocity_profile = None
+
+    def generate_trajectory(
+        self, path: np.ndarray, num_waypoints: int = 200, num_iterations: int = 1
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """"""
+        # Append the original path to list of paths
+        self.paths.append(path)
+
+        # Rerun the optimization as many times as wanted
+        for _ in range(num_iterations):
+            # Generate global path
+            spline_x, spline_y, _ = self.optimize_path(self.paths[-1][:, :-1])
+
+            # Discretize and append new path
+            self.paths.append(self.discretize_spline(spline_x, spline_y, num_waypoints))
+
+        # Generate a velocity profile
+        velocity_profile, curvatures = self.generate_raw_profile_data(
+            spline_x, spline_y, num_waypoints
+        )
+        velocity_profile = self.generate_forward_pass_profile(
+            velocity_profile, self.paths[-1], curvatures
+        )
+        velocity_profile = self.generate_backward_pass_profile(
+            velocity_profile, self.paths[-1], curvatures
+        )
+        self.velocity_profile = velocity_profile
+
+        # TODO: this is cheating
+        self.velocity_profile[-15:] = self.v_x_max
+
+        return (self.paths[-1], velocity_profile)
 
     def optimize_path(
         self, path: np.ndarray, warm_start_params: Dict[str, np.ndarray] = None
@@ -45,6 +101,10 @@ class TrajectoryBuilder:
 
         # Construct piecewise polynomial spline
         spline_x, spline_y = self.construct_splines(sol.value(C_x), sol.value(C_y))
+
+        # Set up the maximum parameterization varible, i.e., the original number of waypoints,
+        # since each spline is parameterized between 0 and 1
+        self.m = path.shape[1]
 
         return (
             spline_x,
@@ -227,35 +287,212 @@ class TrajectoryBuilder:
         spline_y = scipy.interpolate.PPoly(
             np.flip(C_y, axis=0), np.arange(0, C_y.shape[1] + 1, 1)
         )
+
         return spline_x, spline_y
 
-    def plot_path(
-        self,
-        spline_x: scipy.interpolate.PPoly,
-        spline_y: scipy.interpolate.PPoly,
-        path: np.ndarray,
-    ) -> None:
+    def plot_paths(self) -> None:
         """"""
-        # Number of waypoints
-        m = path.shape[1]
-
-        # Parametric variable for plotting
-        t = np.linspace(0, m, 1000)
-
         # Plot results
         plt.figure()
         plt.title("Results of minimum curvature optimization")
         plt.xlabel(r"$x$ [m]")
         plt.ylabel(r"$y$ [m]")
         plt.plot(
-            np.concatenate([path[0], np.reshape(path[0, 0], (1))]),
-            np.concatenate([path[1], np.reshape(path[1, 0], (1))]),
-            label="original path",
-            color="red",
+            np.concatenate([self.paths[0][0], np.reshape(self.paths[0][0, 0], (1))]),
+            np.concatenate([self.paths[0][1], np.reshape(self.paths[0][1, 0], (1))]),
+            label="original",
         )
-        plt.plot(spline_x(t), spline_y(t), label="optimized path", color="green")
+        for i, path in enumerate(self.paths[1:]):
+            plt.scatter(path[0, 0], path[1, 0])
+            plt.plot(
+                path[0, :],
+                path[1, :],
+                label=rf"optimized $k={i + 1}$",
+            )
         plt.legend()
         plt.show()
+
+    def plot_optimized_trajectory(self) -> None:
+        """"""
+        plt.figure()
+        plt.title("Optimized trajectory")
+        plt.xlabel(r"$x$ [m]")
+        plt.ylabel(r"$y$ [m]")
+        scatter = plt.scatter(
+            self.paths[-1][0],
+            self.paths[-1][1],
+            c=self.velocity_profile,
+            cmap="viridis",
+        )
+        plt.colorbar(scatter, label="Velocity [m/s]")
+        plt.show()
+
+    def discretize_spline(
+        self,
+        spline_x: scipy.interpolate.PPoly,
+        spline_y: scipy.interpolate.PPoly,
+        num_waypoints: int = 200,
+    ) -> np.ndarray:
+        t = np.linspace(0, self.m, num_waypoints)
+        return np.array([spline_x(t), spline_y(t)])
+
+    def calculate_spline_curvature(
+        self,
+        spline_x: scipy.interpolate.PPoly,
+        spline_y: scipy.interpolate.PPoly,
+        t: float,
+    ) -> float:
+        """"""
+        return (spline_x(t, 1) * spline_y(t, 2) - spline_y(t, 1) * spline_x(t, 2)) / (
+            (spline_x(t, 1) ** 2 + spline_y(t, 1) ** 2) ** (3 / 2)
+        )
+
+    def generate_raw_profile_data(
+        self,
+        spline_x: scipy.interpolate.PPoly,
+        spline_y: scipy.interpolate.PPoly,
+        num_waypoints: int,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """"""
+        # Set up raw velocity profile
+        velocity_profile = np.zeros(num_waypoints)  # [m/s]
+        curvatures = np.zeros(num_waypoints)  # [rad/m]
+        for i, t in enumerate(np.linspace(0, self.m, num_waypoints)):
+            # Calculate curvature
+            kappa = self.calculate_spline_curvature(spline_x, spline_y, t)
+            curvatures[i] = kappa
+
+            # Calculate velocity based off centripital acceleration
+            v_x = np.sqrt(self.a_y_max / np.abs(kappa))
+
+            # Clip the velocity
+            v_x = np.clip(v_x, self.v_x_min, self.v_x_max)
+
+            # Add the velocity to the profile
+            velocity_profile[i] = v_x
+
+        return (velocity_profile, curvatures)
+
+    def calculate_accelerations(
+        self, v_x: float, a_x_max: float, kappa: float
+    ) -> Tuple[float, float]:
+        """"""
+        # Calculate lateral acceleration
+        a_y = v_x**2 * np.abs(kappa)  # [m/s^2]
+        a_y = np.min([self.a_y_max, a_y])
+
+        # Calculate longitudinal accleration
+        a_x = a_x_max * np.sqrt(1 - (a_y / self.a_y_max) ** 2)  # [m/s^2]
+
+        return (a_x, a_y)
+
+    def generate_forward_pass_profile(
+        self, velocity_profile: np.ndarray, path: np.ndarray, curvatures: np.ndarray
+    ) -> np.ndarray:
+        """
+        Based off forward algorithm for velocity profile computation in:
+        https://github.com/TUMFTM/trajectory_planning_helpers/tree/master
+        """
+        # Get the number of waypoints
+        num_waypoints = len(velocity_profile)
+
+        # Find the indices where any accelerations begin
+        acceleration_indices = np.where(np.diff(velocity_profile) > 0.0)[0]
+        acceleration_start_indices = list(
+            acceleration_indices[np.insert(np.diff(acceleration_indices), 0, 2) > 1]
+        )
+
+        # Loop through while we have segments of acceleration
+        while acceleration_start_indices:
+            # Grab the latest acceleration start index
+            i = acceleration_start_indices.pop(0)
+
+            # Loop through until we reach the end of the path
+            while i < num_waypoints - 1:
+                # Calculate accelerations
+                a_x, a_y = self.calculate_accelerations(
+                    velocity_profile[i], self.a_x_accel_max, curvatures[i]
+                )
+
+                # Calculate distance between waypoints
+                dist = np.linalg.norm(path[:, i + 1] - path[:, i])
+
+                # Calculate velocity at the next discretization point. If it is
+                # larger than the current profile's velocity, keep the velocity
+                # as is
+                v_x_ip1 = np.sqrt(velocity_profile[i] ** 2 + 2 * a_x * dist)
+                velocity_profile[i + 1] = np.min(
+                    [
+                        v_x_ip1,
+                        velocity_profile[i + 1],
+                    ]
+                )
+
+                # Incrememt the index
+                i += 1
+
+                # Break out of the loop if our calculated velocity would have been higher
+                # than our maximum velocity or if we are going to move on to the next
+                # acceleration start index
+                if v_x_ip1 > self.v_x_max or (
+                    acceleration_start_indices and i >= acceleration_start_indices[0]
+                ):
+                    break
+
+        return velocity_profile
+
+    def generate_backward_pass_profile(
+        self, velocity_profile: np.ndarray, path: np.ndarray, curvatures: np.ndarray
+    ) -> np.ndarray:
+        """
+        Based off backward algorithm for velocity profile computation in:
+        https://github.com/TUMFTM/trajectory_planning_helpers/tree/master
+        """
+        # Find the indices where any decelerations begin. Reverse the list as we
+        # will work through the profile backwards
+        deceleration_indices = np.where(np.diff(velocity_profile) < 0.0)[0]
+        deceleration_end_indices = list(
+            deceleration_indices[np.insert(np.diff(deceleration_indices), -1, 2) > 1]
+        )[::-1]
+
+        # Loop through while we have segments of deceleration
+        while deceleration_end_indices:
+            # Grab the latest deceleration start index
+            i = deceleration_end_indices.pop(0)
+
+            # Loop through until we reach the end of the path
+            while i > 0:
+                # Calculate "accelerations"
+                a_x, a_y = self.calculate_accelerations(
+                    velocity_profile[i], self.a_x_decel_max, curvatures[i]
+                )
+
+                # Calculate distance between waypoints
+                dist = np.linalg.norm(path[:, i + 1] - path[:, i])
+
+                # Calculate velocity at the next discretization point. If it is
+                # larger than the current profile's velocity, keep the velocity
+                # as is
+                v_x_ip1 = np.sqrt(velocity_profile[i] ** 2 + 2 * a_x * dist)
+                velocity_profile[i - 1] = np.min(
+                    [
+                        v_x_ip1,
+                        velocity_profile[i - 1],
+                    ]
+                )
+
+                # Decrememt the index
+                i -= 1
+
+                # Break out of the loop if our calculated velocity would have been lower
+                # than our minimum velocity or if we are going to move on to the next
+                # deceleration start index
+                if v_x_ip1 > self.v_x_max or (
+                    deceleration_end_indices and i <= deceleration_end_indices[0]
+                ):
+                    break
+
+        return velocity_profile
 
 
 if __name__ == "__main__":
@@ -279,6 +516,11 @@ if __name__ == "__main__":
 
     path = path.T
 
-    trajectory_builder = TrajectoryBuilder(-0.01, 0.01)
+    trajectory_builder = TrajectoryBuilder(-0.01, 0.01, 2, 10)
     spline_x, spline_y, solution_dict = trajectory_builder.optimize_path(path)
     trajectory_builder.plot_path(spline_x, spline_y, path)
+    path = trajectory_builder.discretize_spline(spline_x, spline_y, path.shape[1], 1000)
+    velocity_profile = trajectory_builder.generate_raw_velocity_profile(
+        spline_x, spline_y, path.shape[1], 1000
+    )
+    trajectory_builder.plot_path_with_profile(path, velocity_profile)

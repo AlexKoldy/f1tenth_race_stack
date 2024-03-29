@@ -16,6 +16,7 @@ PurePursuitController::PurePursuitController() {}
  * @param beta (const float) lookahead distance bias [m]
  * @param ell_min (const float) minimum lookahead distance [m]
  * @param ell_max (const float) maximum lookahead distance [m]
+ * @param k_p (const float) steering gain [m]
  */
 PurePursuitController::PurePursuitController(const float alpha,
                                              const float beta,
@@ -27,6 +28,25 @@ PurePursuitController::PurePursuitController(const float alpha,
       ell_min_(ell_min),
       ell_max_(ell_max),
       k_p_(k_p) {}
+
+/**
+ * @brief Sets the parameters for the controller.
+ * @param alpha (const float) lookahead distance slope [s]
+ * @param beta (const float) lookahead distance bias [m]
+ * @param ell_min (const float) minimum lookahead distance [m]
+ * @param ell_max (const float) maximum lookahead distance [m]
+ * @param k_p (const float) steering gain [m]
+ */
+void PurePursuitController::set_parameters(const float alpha, const float beta,
+                                           const float ell_min,
+                                           const float ell_max,
+                                           const float k_p) {
+  this->alpha_ = alpha;
+  this->beta_ = beta;
+  this->ell_min_ = ell_min;
+  this->ell_max_ = ell_max;
+  this->k_p_ = k_p;
+}
 
 /**
  * @brief Returns the lookahead point of the controller

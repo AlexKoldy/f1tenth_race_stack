@@ -21,6 +21,18 @@ class GeometricController {
   void set_velocity_profile(const Eigen::VectorXf velocity_profile);
 
   /**
+   * @brief Sets the parameters for the controller.
+   * @param alpha (const float) lookahead distance slope [s]
+   * @param beta (const float) lookahead distance bias [m]
+   * @param ell_min (const float) minimum lookahead distance [m]
+   * @param ell_max (const float) maximum lookahead distance [m]
+   * @param k_p (const float) steering gain [m]
+   */
+  virtual void set_parameters(const float alpha, const float beta,
+                              const float ell_min, const float ell_max,
+                              const float k_p) = 0;
+
+  /**
    * @brief Returns the lookahead point of the controller
    * @return (Eigen::Vector2f) (x,y)-position of lookahead point [m]
    */
