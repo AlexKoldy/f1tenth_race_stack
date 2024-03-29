@@ -12,7 +12,7 @@
 
 class GeometricControllerNode : public rclcpp::Node {
  public:
-  GeometricControllerNode() : Node("controller_node") {
+  GeometricControllerNode() : Node("geometric_controller_node") {
     // Declare geometric control parameters
     this->declare_parameter<float>("alpha", 0.0);    // [s]
     this->declare_parameter<float>("beta", 0.0);     // [m]
@@ -53,6 +53,10 @@ class GeometricControllerNode : public rclcpp::Node {
         this->path_topic_, 10,
         std::bind(&GeometricControllerNode::path_callback, this,
                   std::placeholders::_1));
+    velocity_profile_sub_ = this->create_subscription<nav_msgs::msg::Path>(
+        this->velocity_profile_topic_, 10,
+        std::bind(&GeometricControllerNode::velocity_profile_callback, this,
+                  std::placeholders::_1));
     pose_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
         this->pose_topic_, 10,
         std::bind(&GeometricControllerNode::pose_callback, this,
@@ -65,6 +69,7 @@ class GeometricControllerNode : public rclcpp::Node {
  private:
   // Topics
   std::string path_topic_ = "/planner/global/path";
+  std::string velocity_profile_topic_ = "/planner/global/velocity_profile";
   std::string drive_topic_ = "/drive";
   std::string pose_topic_ = "/ego_racecar/odom";
   std::string lookahead_marker_topic = "/controller/viz/lookahead_point";
@@ -76,12 +81,14 @@ class GeometricControllerNode : public rclcpp::Node {
   rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr
       drive_pub_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr velocity_profile_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr pose_sub_;
   rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr
       lookahead_point_marker_pub_;
 
   // Flag to wait for a path before doing calculations
   bool path_received_ = false;
+  bool velocity_profile_received_ = false;
 
   /**
    * @brief Sets the path of the controller.
@@ -107,6 +114,24 @@ class GeometricControllerNode : public rclcpp::Node {
     this->path_received_ = true;
   }
 
+  void velocity_profile_callback(
+      const nav_msgs::msg::Path::ConstSharedPtr velocity_profile_msg) {
+    // Find the number of waypoints
+    int num_waypoints = velocity_profile_msg->poses.size();
+
+    // Extract the longitudinal velocities from the profile
+    Eigen::VectorXf velocity_profile(num_waypoints);
+    for (int i = 0; i < num_waypoints; ++i) {
+      velocity_profile(i) = velocity_profile_msg->poses[i].pose.position.x;
+    }
+
+    // Set the velocity profile
+    this->controller_->set_velocity_profile(velocity_profile);
+
+    // Set the flag to allow the controller to start working
+    this->velocity_profile_received_ = true;
+  }
+
   /**
    * @brief Handles the main control loop. All ROS2 information is converted to
    * Eigen information for computation.
@@ -114,8 +139,9 @@ class GeometricControllerNode : public rclcpp::Node {
    * containing pose information.
    */
   void pose_callback(const nav_msgs::msg::Odometry::SharedPtr pose_msg) {
-    // Wait for a path to be present before running the controller
-    if (this->path_received_) {
+    // Wait for a path and velocity profile to be present before running the
+    // controller
+    if (this->path_received_ && this->velocity_profile_received_) {
       // Convert the pose to an Eigen Vector2f object for position and
       // an Eigen Matrix3f for orientation
       Eigen::Vector2f p;     // (x, y)-position [m]
@@ -127,11 +153,10 @@ class GeometricControllerNode : public rclcpp::Node {
       q.z() = pose_msg->pose.pose.orientation.z;
       q.w() = pose_msg->pose.pose.orientation.w;
 
-      // TODO: remove
-      float speed = 7.0;
-
       // Calculate the steering angle
-      float steering_angle = this->controller_->step(p, q, speed);
+      std::pair<float, float> control_inputs = this->controller_->step(p, q);
+      float speed = control_inputs.first;
+      float steering_angle = control_inputs.second;
 
       // Publish the lookahead point
       this->publish_lookahead_point_marker(

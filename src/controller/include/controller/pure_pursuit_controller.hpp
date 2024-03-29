@@ -33,15 +33,16 @@ class PurePursuitController : public GeometricController {
 
   /**
    * @brief Performs one full controller step, by calculating and setting
-   * the lookahead point and returning the steering angle.
+   * the lookahead point and returning the steering angle and longitudinal
+   * velocity
    * @param p (const Eigen::Vector2f) robot (x, y)-position in the global frame
    * [m]
    * @param q (const Eigen::Quaternionf) robot orientation as a quaternion
-   * @param v_x (const float) commanded robot velocity in the robot frame [m/s]
-   * @return (float) steering angle [rad]
+   * @return (std::pair<float, float>) longitudinal velocity [m/s] and steering
+   * angle [rad]
    */
-  virtual float step(const Eigen::Vector2f p, const Eigen::Quaternionf q,
-                     const float v_x) override;
+  virtual std::pair<float, float> step(const Eigen::Vector2f p,
+                                       const Eigen::Quaternionf q) override;
 
  protected:
   // Lookahead parameters
@@ -91,6 +92,16 @@ class PurePursuitController : public GeometricController {
    * @param start_index (int) index of column to be pushed to zero
    */
   void roll_path(Eigen::MatrixXf& path, const int start_index);
+
+  /**
+   * @brief Rolls the indices of the velocity_profile vector such that the
+   * element corresponding to the start index is at zero.
+   * @param velocity_profile (const Eigen::VectorXf) 1-by-num_waypoints vector
+   * of longitudinal velocities
+   * @param start_index (int) index of element to be pushed to zero
+   */
+  void roll_velocity_profile(Eigen::VectorXf& velocity_profile,
+                             const int start_index);
 
   /**
    * @brief Calculates the parameterization parameter of a circle and line

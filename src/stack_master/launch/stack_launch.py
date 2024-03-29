@@ -1,10 +1,27 @@
 from launch import LaunchDescription
+from launch.substitutions import LaunchConfiguration
+from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
-import numpy as np
 
 
 def generate_launch_description() -> LaunchDescription:
     """"""
+    # TODO: make this a command-line argument
+    mode = "SIM"
+
+    #--------------------Controller Parameters-------------------#
+    controller_params = {"alpha": 0.25},  # [s]
+                    {"beta": -0.1},  # [m]
+                    {"ell_min": 1.0},  # [m]
+                    {"ell_max": 5.0},  # [m]
+                    {"k_p": 1.0},  # [m]
+                    {"controller_name": "pure_pursuit"}
+
+    if mode == "SIM":
+        print("yes")
+    elif mode == "REAL":
+        print("real")
+
     launch_description = LaunchDescription(
         [
             Node(

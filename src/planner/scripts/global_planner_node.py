@@ -122,27 +122,39 @@ def hardcoded_stuff():
 
 
 class GlobalPlannerNode(Node):
-    def __init__(self):
+    def __init__(self) -> None:
+        """"""
         super().__init__("global_planner_node")
 
-        # TODO: Make all tune-able parameters ROS params
-        # TODO: Create custom PathWithProfile message (for now Imma just set velocity in the z direction)
+        # Declare trajectory builder parameters
+        self.declare_parameter("alpha_min", 0.0)
+        self.declare_parameter("alpha_max", 0.0)
+        self.declare_parameter("num_waypoints", 0.0)
+        self.declare_parameter("v_x_min", 0.0)
+        self.declare_parameter("v_x_max", 0.0)
+        self.declare_parameter("a_x_max", 0.0)
+        self.declare_parameter("a_y_max", 0.0)
+        self.declare_parameter("optimized_trajectory_path", None)
 
-        # Trajectory builder parameters
-        self.alpha_min = -0.25
-        self.alpha_max = 0.25
-        self.num_waypoints = 100
+        # Get the parameter
+        self.alpha_min = (
+            self.get_parameter("alpha_min").get_parameter_value().double_value
+        )
 
         # Set up the trajectory builder
         self.trajectory_builder = TrajectoryBuilder(
-            self.alpha_min, self.alpha_max, 10, 10, 3, 10
+            self.alpha_min, self.alpha_max, 4, 4, 2, 8
         )
 
         # Set up topics
         self.path_topic = "/planner/global/path"
+        self.velocity_profile_topic = "planner/global/velocity_profile"
 
         # Set up publishers, subscribers, timers
-        self.path_publisher = self.create_publisher(Path, self.path_topic, 10)
+        self.path_pub = self.create_publisher(Path, self.path_topic, 10)
+        self.velocity_profile_pub = self.create_publisher(
+            Path, self.velocity_profile_topic, 10
+        )
         self.timer = self.create_timer(1.0, self.timer_callback)
 
         # TODO: grab waypoints another way
@@ -150,41 +162,46 @@ class GlobalPlannerNode(Node):
         # save and load waypoints from the optimization
         waypoints = hardcoded_stuff()
 
-        self.trajectory_builder.generate_trajectory(waypoints, 100, num_iterations=2)
-        self.trajectory_builder.plot_paths()
-        self.trajectory_builder.plot_optimized_trajectory()
-        # import matplotlib.pyplot as plt
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection="3d")
-        # ax.plot(self.path[0, :], self.path[1, :], velocity_profile)
-        # plt.show()
-
-        # self.trajectory_builder.plot_path_with_profile(self.path, velocity_profile)
-        exit()
+        self.path, self.velocity_profile = self.trajectory_builder.generate_trajectory(
+            waypoints, 100, num_iterations=1
+        )
+        # self.trajectory_builder.plot_paths()
+        # self.trajectory_builder.plot_optimized_trajectory()
 
     def timer_callback(self) -> None:
         """"""
-        self.publish_trajectory(self.path)
+        self.publish_trajectory(self.path, self.velocity_profile)
 
-    def publish_trajectory(self, path: np.ndarray) -> None:
+    def publish_trajectory(
+        self, path: np.ndarray, velocity_profile: np.ndarray
+    ) -> None:
         """"""
-        # Set up the Path message
+        # Set up the path and velocity profile message
         path_msg = Path()
         path_msg.header.stamp = rclpy.time.Time().to_msg()
         path_msg.header.frame_id = "map"
 
+        velocity_profile_msg = Path()
+        velocity_profile_msg.header.stamp = path_msg.header.stamp
+        velocity_profile_msg.header.frame_id = "map"
+
         # Loop through the array of points and add them
         # to the path message
-        for point in path.T:
+        for point, velocity in zip(path.T, velocity_profile):
             pose = PoseStamped()
+            vel = PoseStamped()
             pose.pose.position.x = point[0]
             pose.pose.position.y = point[1]
+            vel.pose.position.x = velocity
             pose.pose.orientation.w = 1.0
+            vel.pose.orientation.w = 1.0
             pose.header.stamp = rclpy.time.Time().to_msg()
+            vel.header.stamp = pose.header.stamp
             path_msg.poses.append(pose)
+            velocity_profile_msg.poses.append(vel)
 
-        self.path_publisher.publish(path_msg)
+        self.path_pub.publish(path_msg)
+        self.velocity_profile_pub.publish(velocity_profile_msg)
 
 
 def main(args=None):
@@ -192,7 +209,6 @@ def main(args=None):
     print("Global Planner Initialized")
     pure_pursuit_node = GlobalPlannerNode()
     rclpy.spin(pure_pursuit_node)
-
     pure_pursuit_node.destroy_node()
     rclpy.shutdown()
 

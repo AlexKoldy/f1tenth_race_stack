@@ -1,0 +1,16 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/alko/ese6150/f1tenth_ws/install/pure_pursuit/lib/python3.8/site-packages",
+        "/home/alko/ese6150/f1tenth_ws/install/pacejka_system_identification/lib/python3.8/site-packages",
+        "/home/alko/ese6150/f1tenth_ws/install/gap_follow/lib/python3.8/site-packages",
+        "/home/alko/ese6150/f1tenth_ws/install/f1tenth_gym_ros/lib/python3.8/site-packages",
+        "/opt/ros/foxy/lib/python3.8/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/alko/ese6150/f1tenth_ws/install/pure_pursuit/lib/python3.8/site-packages",
+        "/home/alko/ese6150/f1tenth_ws/install/pacejka_system_identification/lib/python3.8/site-packages",
+        "/home/alko/ese6150/f1tenth_ws/install/gap_follow/lib/python3.8/site-packages",
+        "/home/alko/ese6150/f1tenth_ws/install/f1tenth_gym_ros/lib/python3.8/site-packages",
+        "/opt/ros/foxy/lib/python3.8/site-packages"
+    ]
+}

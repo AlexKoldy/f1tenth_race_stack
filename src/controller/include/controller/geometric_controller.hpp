@@ -14,6 +14,13 @@ class GeometricController {
   void set_path(const Eigen::MatrixXf path);
 
   /**
+   * @brief Sets the velocity profile to follow for the controller.
+   * @param velocity_profile (const Eigen::VectorXf) 1-by-num_waypoints vector
+   * of longitudinal velocities
+   */
+  void set_velocity_profile(const Eigen::VectorXf velocity_profile);
+
+  /**
    * @brief Returns the lookahead point of the controller
    * @return (Eigen::Vector2f) (x,y)-position of lookahead point [m]
    */
@@ -21,15 +28,16 @@ class GeometricController {
 
   /**
    * @brief Performs one full controller step, by calculating and setting
-   * the lookahead point and returning the steering angle
+   * the lookahead point and returning the steering angle and longitudinal
+   * velocity.
    * @param p (const Eigen::Vector2f) robot (x, y)-position in the global frame
    * [m]
    * @param q (const Eigen::Quaternionf) robot orientation as a quaternion
-   * @param v_x (const float) commanded robot velocity in the robot frame [m/s]
-   * @return (float) steering angle [rad]
+   * @return (std::pair<float, float>) longitudinal velocity [m/s] and steering
+   * angle [rad]
    */
-  virtual float step(const Eigen::Vector2f p, const Eigen::Quaternionf q,
-                     const float v_x) = 0;
+  virtual std::pair<float, float> step(const Eigen::Vector2f p,
+                                       const Eigen::Quaternionf q) = 0;
 
   /**
    * @brief Default destructor.
@@ -37,8 +45,9 @@ class GeometricController {
   virtual ~GeometricController() {}
 
  protected:
-  // Path to follow
+  // Path to follow and velocity profile
   Eigen::MatrixXf path_;
+  Eigen::VectorXf velocity_profile_;
 
  private:
 };

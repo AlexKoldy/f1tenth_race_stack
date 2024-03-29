@@ -23,18 +23,19 @@ ModelAccelerationPursuitController::ModelAccelerationPursuitController(
 
 /**
  * @brief Performs one full controller step, by calculating and setting
- * the lookahead point and returning the steering angle
+ * the lookahead point and returning the steering angle and longitudinal
+ * velocity
  * @param p (const Eigen::Vector2f) robot (x, y)-position in the global frame
  * [m]
  * @param q (const Eigen::Quaternionf) robot orientation as a quaternion
- * @param v_x (const float) commanded robot velocity in the robot frame [m/s]
- * @return (float) steering angle [rad]
+ * @return (std::pair<float, float>) longitudinal velocity [m/s] and steering
+ * angle [rad]
  */
-float ModelAccelerationPursuitController::step(const Eigen::Vector2f p,
-                                               const Eigen::Quaternionf q,
-                                               const float v_x) {
+std::pair<float, float> ModelAccelerationPursuitController::step(
+    const Eigen::Vector2f p, const Eigen::Quaternionf q) {
+  // TODO: this is outdated - FIX
   // Calculate the lookahead distance based off of target speed
-  float ell = this->calculate_lookahead_distance(v_x);
+  float ell = this->calculate_lookahead_distance(0.0);
 
   // Clip the lookahead distance
   this->clip_lookahead_distance(ell, this->ell_min_, this->ell_max_);
@@ -50,5 +51,5 @@ float ModelAccelerationPursuitController::step(const Eigen::Vector2f p,
   // Find the lookahead point
   this->lookahead_point_ = this->calculate_lookahead_point(p, ell, this->path_);
 
-  return 1.0;
+  return std::make_pair(0.0f, 0.0f);
 }

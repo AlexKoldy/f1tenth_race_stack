@@ -38,28 +38,37 @@ Eigen::Vector2f PurePursuitController::get_lookahead_point() {
 
 /**
  * @brief Performs one full controller step, by calculating and setting
- * the lookahead point and returning the steering angle.
+ * the lookahead point and returning the steering angle and longitudinal
+ * velocity.
  * @param p (const Eigen::Vector2f) robot (x, y)-position in the global frame
  * [m]
  * @param q (const Eigen::Quaternionf) robot orientation as a quaternion
- * @param v_x (const float) commanded robot velocity in the robot frame [m/s]
- * @return (float) steering angle [rad]
+ * @return (std::pair<float, float>) longitudinal velocity [m/s] and steering
+ * angle [rad]
  */
-float PurePursuitController::step(const Eigen::Vector2f p,
-                                  const Eigen::Quaternionf q, const float v_x) {
+std::pair<float, float> PurePursuitController::step(
+    const Eigen::Vector2f p, const Eigen::Quaternionf q) {
+  // Find the closest waypoint to the robot
+  int closest_waypoint_index =
+      this->find_closest_waypoint_index(p, this->path_);
+
+  // Roll the path and velocity profile such that the closest index is the
+  // (0)th element of the matrix and vector, respectively
+  this->roll_path(this->path_, closest_waypoint_index);
+  this->roll_velocity_profile(this->velocity_profile_, closest_waypoint_index);
+
+  // Extract the longitudinal velocity from the profile
+  float v_x = this->velocity_profile_(0);  // [m/s]
+
   // Calculate the lookahead distance based off of target speed
   float ell = this->calculate_lookahead_distance(v_x);
 
   // Clip the lookahead distance
   this->clip_lookahead_distance(ell, this->ell_min_, this->ell_max_);
 
-  // Find the closest waypoint to the robot
-  int closest_waypoint_index =
-      this->find_closest_waypoint_index(p, this->path_);
-
-  // Roll the path such that the closest index is the
-  // (0)th element of the path
-  this->roll_path(this->path_, closest_waypoint_index);
+  // std::cout << this->velocity_profile_ << std::endl;
+  std::cout << "v_x: " << v_x << std::endl;
+  std::cout << "ell: " << ell << std::endl;
 
   // Find the lookahead point
   this->lookahead_point_ = this->calculate_lookahead_point(p, ell, this->path_);
@@ -69,8 +78,9 @@ float PurePursuitController::step(const Eigen::Vector2f p,
   Eigen::Matrix3f R = q.normalized().toRotationMatrix();
 
   // Calculate the steering angle
-  return this->calculate_steering_angle(p, this->lookahead_point_,
-                                        R.transpose(), ell);
+  float delta = this->calculate_steering_angle(p, this->lookahead_point_,
+                                               R.transpose(), ell);  // [rad]
+  return std::make_pair(v_x, delta);
 }
 
 /**
@@ -154,6 +164,33 @@ void PurePursuitController::roll_path(Eigen::MatrixXf& path,
 
   // Update the path
   path = rolled_path;
+}
+
+/**
+ * @brief Rolls the indices of the velocity_profile vector such that the element
+ * corresponding to the start index is at zero.
+ * @param velocity_profile (const Eigen::VectorXf) 1-by-num_waypoints vector of
+ * longitudinal velocities
+ * @param start_index (int) index of element to be pushed to zero
+ */
+void PurePursuitController::roll_velocity_profile(
+    Eigen::VectorXf& velocity_profile, const int start_index) {
+  int num_elements = velocity_profile.size();
+
+  // Set up a temporary rolled vector
+  Eigen::VectorXf rolled_velocity_profile(num_elements);
+
+  // Copy the elements from the start index to the end such that
+  // the element corresponding to start index is now at zero
+  rolled_velocity_profile.head(num_elements - start_index) =
+      velocity_profile.segment(start_index, num_elements - start_index);
+
+  // Copy the elements from zero to the start index
+  rolled_velocity_profile.tail(start_index) =
+      velocity_profile.head(start_index);
+
+  // Update the velocity_profile
+  velocity_profile = rolled_velocity_profile;
 }
 
 /**
