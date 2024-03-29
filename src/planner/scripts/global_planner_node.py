@@ -136,14 +136,24 @@ class GlobalPlannerNode(Node):
         self.declare_parameter("a_y_max", 0.0)
         self.declare_parameter("optimized_trajectory_path", None)
 
-        # Get the parameter
+        # Get the values from the trajectory builder
         self.alpha_min = (
             self.get_parameter("alpha_min").get_parameter_value().double_value
         )
-
-        # Set up the trajectory builder
-        self.trajectory_builder = TrajectoryBuilder(
-            self.alpha_min, self.alpha_max, 4, 4, 2, 8
+        self.alpha_max = (
+            self.get_parameter("alpha_max").get_parameter_value().double_value
+        )
+        self.num_waypoints = (
+            self.get_parameter("num_waypoints").get_parameter_value().double_value
+        )
+        self.v_x_min = self.get_parameter("v_x_min").get_parameter_value().double_value
+        self.v_x_max = self.get_parameter("v_x_max").get_parameter_value().double_value
+        self.a_x_max = self.get_parameter("a_x_max").get_parameter_value().double_value
+        self.a_y_max = self.get_parameter("a_y_max").get_parameter_value().double_value
+        self.optimized_trajectory_path = (
+            self.get_parameter("optimized_trajectory_path")
+            .get_parameter_value()
+            .string_value
         )
 
         # Set up topics
@@ -156,6 +166,16 @@ class GlobalPlannerNode(Node):
             Path, self.velocity_profile_topic, 10
         )
         self.timer = self.create_timer(1.0, self.timer_callback)
+
+        # Set up the trajectory builder
+        self.trajectory_builder = TrajectoryBuilder(
+            self.alpha_min,
+            self.alpha_max,
+            self.a_x_max,
+            self.a_y_max,
+            self.v_x_min,
+            self.v_x_max,
+        )
 
         # TODO: grab waypoints another way
         # Make option to not reoptimize, i.e.,
