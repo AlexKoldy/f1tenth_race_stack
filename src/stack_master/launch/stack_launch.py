@@ -37,6 +37,7 @@ def generate_launch_description() -> LaunchDescription:
         {
             "a_y_max": 3
         },  # maximum lateral acceleration for velocity profile generation [m/s^2]
+        {"num_iterations": 1},  # number of times to reoptimize the trajectory
         {
             "optimized_trajectory_path": None
         },  # path to the optimized trajectory for loading, if None, we reoptimize

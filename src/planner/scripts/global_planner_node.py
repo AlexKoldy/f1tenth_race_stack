@@ -10,130 +10,20 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 
 
-# TODO: delete this and find way to auto generate this from a map (centerline code)
-# from the map
-# Yexin's code
-def hardcoded_stuff():
-    from scipy.interpolate import splprep, splev
-    from scipy.interpolate import CubicSpline
-
-    ds = 0.5
-    curve_num = 7
-
-    def create_waypoints():
-        corner1 = np.array([[6.39, 24.09], [5.55, 24.10], [5.04, 23.27]])
-        line1 = np.array([[5.04, 23.27], [-0.36, 2.24]])
-        corner2 = np.array([[-0.32, 2.28], [-0.35, 1.14], [0.32, 0.68]])
-        line2 = np.array([[0.47, 0.72], [7.32, -1.15]])
-        corner3 = np.array([[7.32, -1.15], [8.05, -0.80], [8.24, -0.22]])
-        line3 = np.array([[8.24, -0.22], [13.85, 20.79]])
-        corner4 = np.array([[13.85, 20.79], [14.04, 21.76], [13.45, 22.30]])
-        line4 = np.array([[13.45, 22.30], [6.39, 24.09]])
-        corner1_traj = curve_path(corner1, curve_num)
-        line1_traj = line_path(line1[0], line1[1], ds)
-        corner2_traj = curve_path(corner2, curve_num)
-        line2_traj = line_path(line2[0], line2[1], ds)
-        corner3_traj = curve_path(corner3, curve_num)
-        line3_traj = line_path(line3[0], line3[1], ds)
-        corner4_traj = curve_path(corner4, curve_num)
-        line4_traj = line_path(line4[0], line4[1], ds)
-        waypoints = np.vstack(
-            (
-                line1_traj,
-                corner2_traj,
-                line2_traj,
-                corner3_traj,
-                line3_traj,
-                corner4_traj,
-                line4_traj,
-                corner1_traj,
-            )
-        )
-        return waypoints
-
-    def line_path(start, end, ds):
-        # interpolate between the two points
-        num = int(np.linalg.norm(end - start) / ds)
-        x = np.linspace(start[0], end[0], num)
-        y = np.linspace(start[1], end[1], num)
-        waypoints = np.vstack((x, y)).T
-        return waypoints
-
-    def curve_path(key_points, num):
-        # create a spline
-        tck, u = splprep(key_points.T, s=2, per=False, k=2)
-
-        # use the spline to create a new set of waypoints
-        u_new = np.linspace(u.min(), u.max(), num)
-        x_new, y_new = splev(u_new, tck, der=0)
-
-        # combine the new x and y values
-        waypoints = np.vstack((x_new, y_new)).T
-        return waypoints
-
-    waypoints = create_waypoints()
-    x = waypoints[:, 0]
-    y = waypoints[:, 1]
-
-    # Generate parameter values (t)
-    t = np.linspace(0, 1, len(x))
-
-    # Generate cubic splines for x and y separately
-    spline_x = CubicSpline(t, x)
-    spline_y = CubicSpline(t, y)
-
-    # Evaluate splines to get interpolated values
-    # For example, to get interpolated x and y values at some new t values:
-    new_t_values = np.linspace(0, 1, 100)  # Example: 100 new t values
-    interpolated_x_values = spline_x(new_t_values)
-    interpolated_y_values = spline_y(new_t_values)
-
-    # # Plotting (Optional)
-    # import matplotlib.pyplot as plt
-
-    # plt.plot(x, y, "o", label="Waypoints")
-    # plt.plot(interpolated_x_values, interpolated_y_values, "-", label="Spline")
-    # plt.xlabel("X")
-    # plt.ylabel("Y")
-    # plt.title("Piecewise Polynomial Spline")
-    # plt.legend()
-    # plt.grid(True)
-    # plt.show()
-    waypoints = waypoints[:-1, :].T
-
-    def remove_duplicate_columns(array):
-        # Initialize an empty list to store indices of columns to keep
-        columns_to_keep = [0]
-
-        # Iterate through each column
-        for i in range(1, array.shape[1]):
-            # Check if the current column is different from the previous one
-            if not np.array_equal(array[:, i], array[:, i - 1]):
-                columns_to_keep.append(i)
-
-        # Select only the columns to keep from the original array
-        filtered_array = array[:, columns_to_keep]
-
-        return filtered_array
-
-    waypoints = remove_duplicate_columns(waypoints)
-
-    return waypoints
-
-
 class GlobalPlannerNode(Node):
     def __init__(self) -> None:
         """"""
         super().__init__("global_planner_node")
 
         # Declare trajectory builder parameters
-        self.declare_parameter("alpha_min", 0.0)
-        self.declare_parameter("alpha_max", 0.0)
-        self.declare_parameter("num_waypoints", 0.0)
-        self.declare_parameter("v_x_min", 0.0)
-        self.declare_parameter("v_x_max", 0.0)
-        self.declare_parameter("a_x_max", 0.0)
-        self.declare_parameter("a_y_max", 0.0)
+        self.declare_parameter("alpha_min", -0.01)
+        self.declare_parameter("alpha_max", 0.25)
+        self.declare_parameter("num_waypoints", 200)
+        self.declare_parameter("v_x_min", 2.0)
+        self.declare_parameter("v_x_max", 5.0)
+        self.declare_parameter("a_x_max", 3.0)
+        self.declare_parameter("a_y_max", 3.0)
+        self.declare_parameter("num_iterations", 1)
         self.declare_parameter("optimized_trajectory_path", None)
 
         # Get the values from the trajectory builder
@@ -144,12 +34,15 @@ class GlobalPlannerNode(Node):
             self.get_parameter("alpha_max").get_parameter_value().double_value
         )
         self.num_waypoints = (
-            self.get_parameter("num_waypoints").get_parameter_value().double_value
+            self.get_parameter("num_waypoints").get_parameter_value().integer_value
         )
         self.v_x_min = self.get_parameter("v_x_min").get_parameter_value().double_value
         self.v_x_max = self.get_parameter("v_x_max").get_parameter_value().double_value
         self.a_x_max = self.get_parameter("a_x_max").get_parameter_value().double_value
         self.a_y_max = self.get_parameter("a_y_max").get_parameter_value().double_value
+        self.num_iterations = (
+            self.get_parameter("num_iterations").get_parameter_value().integer_value
+        )
         self.optimized_trajectory_path = (
             self.get_parameter("optimized_trajectory_path")
             .get_parameter_value()
@@ -180,10 +73,13 @@ class GlobalPlannerNode(Node):
         # TODO: grab waypoints another way
         # Make option to not reoptimize, i.e.,
         # save and load waypoints from the optimization
-        waypoints = hardcoded_stuff()
+        from funny_splines import FunnySplines
+
+        funny_spline = FunnySplines()
+        waypoints = funny_spline.path
 
         self.path, self.velocity_profile = self.trajectory_builder.generate_trajectory(
-            waypoints, 100, num_iterations=1
+            waypoints, self.num_waypoints, self.num_iterations
         )
         # self.trajectory_builder.plot_paths()
         # self.trajectory_builder.plot_optimized_trajectory()
