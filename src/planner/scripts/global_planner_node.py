@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy import Parameter
 import numpy as np
 import os
 from typing import Dict, Union
@@ -19,21 +20,21 @@ class GlobalPlannerNode(Node):
         super().__init__("global_planner_node")
 
         # Declare trajectory builder parameters
-        self.declare_parameter("alpha_min", -0.1)
-        self.declare_parameter("alpha_max", 0.1)
+        self.declare_parameter("alpha_min", -0.15)
+        self.declare_parameter("alpha_max", 0.15)
         self.declare_parameter("num_waypoints", 1500)
         self.declare_parameter("v_x_min", 2.0)
-        self.declare_parameter("v_x_max", 7.0)
-        self.declare_parameter("a_x_accel_max", 10.0)
-        self.declare_parameter("a_x_decel_max", 4.0)
-        self.declare_parameter("a_y_max", 10.0)
-        self.declare_parameter("num_iterations", 2)
+        self.declare_parameter("v_x_max", 5.0)
+        self.declare_parameter("a_x_accel_max", 3.0)
+        self.declare_parameter("a_x_decel_max", 3.0)
+        self.declare_parameter("a_y_max", 3.0)
+        self.declare_parameter("num_iterations", 1)
         self.declare_parameter("trajectory_load_file", "raw_waypoints_1.npz")
         self.declare_parameter("trajectory_save_file", "optimized_trajectory.npz")
         self.declare_parameter("reoptimize", True)
 
         # Set up parameters
-        self.parmameters = self.set_parameters()
+        self.parmameters = self.set_params()
 
         # Set up topics
         self.path_topic = "/planner/global/path"
@@ -67,7 +68,7 @@ class GlobalPlannerNode(Node):
         if self.reoptimize:
             self.generate_trajectory()
 
-    def set_parameters(self) -> Dict[str, Union[float, int, str, bool]]:
+    def set_params(self) -> Dict[str, Union[float, int, str, bool]]:
         """"""
         self.alpha_min = (
             self.get_parameter("alpha_min").get_parameter_value().double_value
@@ -141,19 +142,24 @@ class GlobalPlannerNode(Node):
             trajectory_save_file, path=self.path, velocity_profile=self.velocity_profile
         )
         # TODO: visualize velocity profile with RVIZ somehow (different colored points??)
-        self.trajectory_builder.plot_paths()
-        self.trajectory_builder.plot_optimized_trajectory()
-        exit()
+        # self.trajectory_builder.plot_paths()
+        # self.trajectory_builder.plot_optimized_trajectory()
+        # exit()
+
+        # Turn off reoptimize to prevent further reoptimization
+        self.set_parameters([Parameter("reoptimize", Parameter.Type.BOOL, False)])
+        self.reoptimize = False
 
     def timer_callback(self) -> None:
         """"""
         # Set our parameters
-        new_parameters = self.set_parameters()
+        new_parameters = self.set_params()
 
         # If we have changed any of the parameters, reoptimize if that option is 'True'
         if self.reoptimize:
-            if not self.parmameters == new_parameters:
-                self.generate_trajectory()
+            self.generate_trajectory()
+            # if not self.parmameters == new_parameters:
+            #     self.generate_trajectory()
 
         # If we have a trajectory, publish it
         self.publish_trajectory(self.path, self.velocity_profile)
