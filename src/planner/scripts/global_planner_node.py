@@ -22,15 +22,15 @@ class GlobalPlannerNode(Node):
         # Declare trajectory builder parameters
         self.declare_parameter("alpha_min", -0.15)
         self.declare_parameter("alpha_max", 0.15)
-        self.declare_parameter("num_waypoints", 1500)
-        self.declare_parameter("v_x_min", 2.0)
-        self.declare_parameter("v_x_max", 5.0)
-        self.declare_parameter("a_x_accel_max", 3.0)
+        self.declare_parameter("num_waypoints", 1000)
+        self.declare_parameter("v_x_min", 3.0)
+        self.declare_parameter("v_x_max", 6.0)
+        self.declare_parameter("a_x_accel_max", 10.0)
         self.declare_parameter("a_x_decel_max", 3.0)
-        self.declare_parameter("a_y_max", 3.0)
+        self.declare_parameter("a_y_max", 2.0)
         self.declare_parameter("num_iterations", 1)
         self.declare_parameter("trajectory_load_file", "raw_waypoints_1.npz")
-        self.declare_parameter("trajectory_save_file", "optimized_trajectory.npz")
+        self.declare_parameter("trajectory_save_file", "optimized_trajectory_1.npz")
         self.declare_parameter("reoptimize", True)
 
         # Set up parameters
@@ -142,8 +142,8 @@ class GlobalPlannerNode(Node):
             trajectory_save_file, path=self.path, velocity_profile=self.velocity_profile
         )
         # TODO: visualize velocity profile with RVIZ somehow (different colored points??)
-        # self.trajectory_builder.plot_paths()
-        # self.trajectory_builder.plot_optimized_trajectory()
+        self.trajectory_builder.plot_paths()
+        self.trajectory_builder.plot_optimized_trajectory()
         # exit()
 
         # Turn off reoptimize to prevent further reoptimization

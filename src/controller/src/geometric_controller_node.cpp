@@ -26,7 +26,7 @@ class GeometricControllerNode : public rclcpp::Node {
     this->declare_parameter<std::string>("controller_name", "pure_pursuit");
 
     // Declare parameter to determine sim or real
-    this->declare_parameter<std::string>("mode", "sim");
+    this->declare_parameter<std::string>("mode", "real");
 
     // Set up controller
     if (this->get_parameter("controller_name").as_string() == "pure_pursuit") {
@@ -47,6 +47,11 @@ class GeometricControllerNode : public rclcpp::Node {
       // TODO: handle this
       ;
     }
+
+    // Set the path and velocity profile to zeros for initial comparison
+    // TODO: cheesing the shape here
+    this->path_ = Eigen::MatrixXf::Zero(2, 1000);
+    this->velocity_profile_ = Eigen::VectorXf::Zero(1000);
 
     // Set the odometry topic based off the mode
     if (this->get_parameter("mode").as_string() == "sim") {
@@ -104,6 +109,10 @@ class GeometricControllerNode : public rclcpp::Node {
   bool path_received_ = false;
   bool velocity_profile_received_ = false;
 
+  // Path and velocity profile to set
+  Eigen::MatrixXf path_;
+  Eigen::VectorXf velocity_profile_;
+
   /**
    * @brief Sets the controller parameters.
    */
@@ -135,8 +144,13 @@ class GeometricControllerNode : public rclcpp::Node {
       path(1, i) = path_msg->poses[i].pose.position.y;
     }
 
-    // Set the path
-    this->controller_->set_path(path);
+    // If the previous path and new path are the same, update the
+    // controller
+    if (!this->path_.isApprox(path)) {
+      std::cout << "path" << std::endl;
+      this->controller_->set_path(path);
+      this->path_ = path;
+    }
 
     // Set the flag to allow the controller to start working
     this->path_received_ = true;
@@ -153,16 +167,22 @@ class GeometricControllerNode : public rclcpp::Node {
       velocity_profile(i) = velocity_profile_msg->poses[i].pose.position.x;
     }
 
-    // Set the velocity profile
-    this->controller_->set_velocity_profile(velocity_profile);
+    // If the previous profile and new pprofile are not the same, update the
+    // controller
+    if (!this->velocity_profile_.isApprox(velocity_profile)) {
+      std::cout << "vel" << std::endl;
+      // Set the velocity profile
+      this->controller_->set_velocity_profile(velocity_profile);
+      this->velocity_profile_ = velocity_profile;
+    }
 
     // Set the flag to allow the controller to start working
     this->velocity_profile_received_ = true;
   }
 
   /**
-   * @brief Handles the main control loop. All ROS2 information is converted to
-   * Eigen information for computation.
+   * @brief Handles the main control loop. All ROS2 information is converted
+   * to Eigen information for computation.
    * @param pose_msg (const nav_msgs::msg::Odometry::SharedPtr) message
    * containing pose information.
    */

@@ -74,11 +74,14 @@ std::pair<float, float> PurePursuitController::step(
 
   // Roll the path and velocity profile such that the closest index is the
   // (0)th element of the matrix and vector, respectively
-  this->roll_path(this->path_, closest_waypoint_index);
-  this->roll_velocity_profile(this->velocity_profile_, closest_waypoint_index);
+  Eigen::MatrixXf rolled_path =
+      this->roll_path(this->path_, closest_waypoint_index);
+  // Eigen::VectorXf velocity_profile =
+  // this->roll_velocity_profile(this->velocity_profile_,
+  // closest_waypoint_index);
 
   // Extract the longitudinal velocity from the profile
-  float v_x = this->velocity_profile_(0);  // [m/s]
+  float v_x = this->velocity_profile_(closest_waypoint_index);  // [m/s]
 
   // Calculate the lookahead distance based off of target speed
   float ell = this->calculate_lookahead_distance(v_x);
@@ -88,10 +91,10 @@ std::pair<float, float> PurePursuitController::step(
 
   // std::cout << this->velocity_profile_ << std::endl;
   std::cout << "v_x: " << v_x << std::endl;
-  std::cout << "ell: " << ell << std::endl;
+  // std::cout << "ell: " << ell << std::endl;
 
   // Find the lookahead point
-  this->lookahead_point_ = this->calculate_lookahead_point(p, ell, this->path_);
+  this->lookahead_point_ = this->calculate_lookahead_point(p, ell, rolled_path);
 
   // Convert the orientation quaternion to a rotation matrix. Transpose the
   // matrix so it can be used to rotate from the global frame to the robot frame
@@ -160,12 +163,13 @@ int PurePursuitController::find_closest_waypoint_index(
 /**
  * @brief Rolls the path matrix such that the column corresponding to the start
  * index is at zero.
- * @param path (Eigen::MatrixXf&) 2-by-num_waypoints matrix of (x, y)
+ * @param path (const Eigen::MatrixXf) 2-by-num_waypoints matrix of (x, y)
  * waypoints corresponding to the path to be rolled [m]
  * @param start_index (int) index of column to be pushed to zero
+ * @return (Eigen::MatrixXf) rolled path
  */
-void PurePursuitController::roll_path(Eigen::MatrixXf& path,
-                                      const int start_index) {
+Eigen::MatrixXf PurePursuitController::roll_path(const Eigen::MatrixXf path,
+                                                 const int start_index) {
   // Extract dimensions of the path matrix
   int num_rows = path.rows();
   int num_cols = path.cols();
@@ -183,7 +187,7 @@ void PurePursuitController::roll_path(Eigen::MatrixXf& path,
       path.block(0, 0, num_rows, start_index);
 
   // Update the path
-  path = rolled_path;
+  return rolled_path;
 }
 
 /**

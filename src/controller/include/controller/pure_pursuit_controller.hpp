@@ -98,11 +98,12 @@ class PurePursuitController : public GeometricController {
   /**
    * @brief Rolls the path matrix such that the column corresponding to the
    * start index is at zero.
-   * @param path (Eigen::MatrixXf&) 2-by-num_waypoints matrix of (x, y)
+   * @param path (const Eigen::MatrixXf) 2-by-num_waypoints matrix of (x, y)
    * waypoints corresponding to the path to be rolled [m]
    * @param start_index (int) index of column to be pushed to zero
+   * @return (Eigen::MatrixXf) rolled path
    */
-  void roll_path(Eigen::MatrixXf& path, const int start_index);
+  Eigen::MatrixXf roll_path(const Eigen::MatrixXf path, const int start_index);
 
   /**
    * @brief Rolls the indices of the velocity_profile vector such that the
