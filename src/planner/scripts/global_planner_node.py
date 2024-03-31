@@ -20,17 +20,53 @@ class GlobalPlannerNode(Node):
         super().__init__("global_planner_node")
 
         # Declare trajectory builder parameters
-        self.declare_parameter("alpha_min", -0.15)
-        self.declare_parameter("alpha_max", 0.15)
+        # 'alpha_min' and 'alpha_max' are the maximum deviations from the
+        # original (so they will squeeze or expand it). Rough guide:
+        # - 'alpha_min' < 0.0 and 'alpha_max' > 0.0': line can be optimized to expand and contract
+        # - 'alpha_min' >= 0.0 and 'alpha_max' > 0.0: line can be squeezed inwards
+        # - 'alpha_min' < 0.0 and 'alpha_max' <= 0.0: line can be expanded outwards
+        # - 'alpha_min' = 0.0 and 'alpha_max' = 0.0: line stays the same as original,
+        #                                            but new velocity profile can be
+        #                                            generated for it
+        # 'num_waypoints' Determines the number of waypoints the optimized trajectory should
+        # have
+        # Note: DO NOT change this. It will mess up the Pure Pursuit controller
+        # and rebuilding C++ is a pain in the ass, so I don't want to fix the
+        # issue right now
+        # The following parameters are for generating the velocity profile
+        # 'v_x_min' and 'v_x_max' are the maximum longitudinal velocities
+        # (the velocities we send to the car via the '/drive' topic).
+        # 'v_x_min' will be more likely around sharp corners, 'v_x_max'
+        # will be at the beginning of large straightaways.
+        # 'a_x_accel_max' is the maximum acceleration the car can go. Setting
+        # this to a high value will help ensure the beginning of your straight
+        # movements is at a high velocity. 'a_x_decel_max' is the maximum
+        # deceleration the car can have (it should be positive). You should keep
+        # this value low as we want to ensure that the car slowly ramps down its
+        # speed when reaching a curve.
+        # 'a_y_max' is the maximum centripital acceleration of the car. It
+        # is probably useful to keep this value low and tune it carefully
+        # as it seems to be sensitive. The first pass of the velocity profile
+        # is generated as v_x = /sqrt{a_y_max * kappa}, where kappa is curvature
+        # 'num_iterations' is the amount of times the trajectory generator will run
+        # 'trajectory_load_file' will contain the trajectory you want to
+        # further optimize.
+        # 'trajectory_save_file' will contain the save location of your optimized
+        # trajectory. Note: if you are happy with a trajectory, take a photo of
+        # all the parameters, and increase the number at the end. This way, you
+        # can save "good" trajectories
+        # You shouldn't have to worry about 'reoptimize'. Keep it as 'True'
+        self.declare_parameter("alpha_min", 0.00)
+        self.declare_parameter("alpha_max", 0.25)
         self.declare_parameter("num_waypoints", 1000)
-        self.declare_parameter("v_x_min", 2.5)
+        self.declare_parameter("v_x_min", 2.4)
         self.declare_parameter("v_x_max", 10.0)
         self.declare_parameter("a_x_accel_max", 12.0)
         self.declare_parameter("a_x_decel_max", 4.5)
-        self.declare_parameter("a_y_max", 3.25)
+        self.declare_parameter("a_y_max", 3.11)
         self.declare_parameter("num_iterations", 3)
-        self.declare_parameter("trajectory_load_file", "raw_waypoints_1.npz")
-        self.declare_parameter("trajectory_save_file", "optimized_trajectory_5.npz")
+        self.declare_parameter("trajectory_load_file", "raw_waypoints_2.npz")
+        self.declare_parameter("trajectory_save_file", "optimized_trajectory_12.npz")
         self.declare_parameter("reoptimize", True)
 
         # Set up parameters
