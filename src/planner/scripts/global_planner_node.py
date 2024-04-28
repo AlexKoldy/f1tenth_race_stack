@@ -63,12 +63,12 @@ class GlobalPlannerNode(Node):
         self.declare_parameter("v_x_max", 10.0)
         self.declare_parameter("a_x_accel_max", 12.0)
         self.declare_parameter("a_x_decel_max", 6.0)
-        self.declare_parameter("a_y_max", 8.0)
+        self.declare_parameter("a_y_max", 6.0)
         self.declare_parameter("num_iterations", 1)
 
-        self.declare_parameter("trajectory_load_file", "race3_new.npz")
+        self.declare_parameter("trajectory_load_file", "race3_new4.npz")
 
-        self.declare_parameter("trajectory_save_file", "race3_new4.npz")
+        self.declare_parameter("trajectory_save_file", "race3_new5.npz")
         self.declare_parameter("reoptimize", True)
 
         # Set up parameters
