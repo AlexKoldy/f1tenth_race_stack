@@ -56,17 +56,19 @@ class GlobalPlannerNode(Node):
         # all the parameters, and increase the number at the end. This way, you
         # can save "good" trajectories
         # You shouldn't have to worry about 'reoptimize'. Keep it as 'True'
-        self.declare_parameter("alpha_min", 0.00)
-        self.declare_parameter("alpha_max", 0.25)
+        self.declare_parameter("alpha_min", 10.0)
+        self.declare_parameter("alpha_max", 10.0)
         self.declare_parameter("num_waypoints", 1000)
-        self.declare_parameter("v_x_min", 2.4)
+        self.declare_parameter("v_x_min", 2.2)
         self.declare_parameter("v_x_max", 10.0)
         self.declare_parameter("a_x_accel_max", 12.0)
-        self.declare_parameter("a_x_decel_max", 4.5)
-        self.declare_parameter("a_y_max", 3.11)
-        self.declare_parameter("num_iterations", 3)
-        self.declare_parameter("trajectory_load_file", "raw_waypoints_2.npz")
-        self.declare_parameter("trajectory_save_file", "optimized_trajectory_12.npz")
+        self.declare_parameter("a_x_decel_max", 4.0)
+        self.declare_parameter("a_y_max", 0.5)
+        self.declare_parameter("num_iterations", 1)
+
+        self.declare_parameter("trajectory_load_file", "race3_2.npz")
+
+        self.declare_parameter("trajectory_save_file", "race3_3.npz")
         self.declare_parameter("reoptimize", True)
 
         # Set up parameters
@@ -86,7 +88,7 @@ class GlobalPlannerNode(Node):
         # If we have a valid trajectory file, we can load it
         current_directory = os.path.dirname(os.path.abspath(__file__))
         self.trajectory_directory = os.path.join(
-            current_directory, "..", "trajectories"
+            current_directory, "..", "trajectories", "race3"
         )
         trajectory_load_file = os.path.join(
             self.trajectory_directory, self.trajectory_load_file

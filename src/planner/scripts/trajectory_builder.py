@@ -64,7 +64,12 @@ class TrajectoryBuilder:
         self.velocity_profile = velocity_profile
 
         # TODO: this is cheating
-        self.velocity_profile[-15:] = self.v_x_max
+        # self.velocity_profile[-15:] = self.v_x_max
+        # self.velocity_profile[-10:] = self.v_x_max
+        # self.velocity_profile[:65] = self.v_x_max
+
+        # FOR SECOND STRAIGHT
+        # self.velocity_profile[825:850] = self.v_x_max
 
         return (self.paths[-1], velocity_profile)
 
@@ -303,7 +308,6 @@ class TrajectoryBuilder:
             label="original",
         )
         for i, path in enumerate(self.paths[1:]):
-            plt.scatter(path[0, 0], path[1, 0])
             plt.plot(
                 path[0, :],
                 path[1, :],
