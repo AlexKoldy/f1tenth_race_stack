@@ -6,34 +6,17 @@ import scipy
 import os
 
 # Given waypoints
+
+
 waypoints = np.array(
     [
-        [250, 100],
-        [159, 147],
-        [80, 200],
-        [130, 37],
-        [250, 100],
+        [13.37, 8.07],
+        [7.0, 10.45],
+        [5.05, 2.63],
+        [9, 6],
+        [13.37, 8.07],
     ]
 )
-# waypoints = np.array(
-#     [
-#         [61, 178],
-#         [100, 50],
-#         [125, 27],
-#         [150, 33],
-#         [245, 60],
-#         [256, 86],
-#         [250, 123],
-#         # [226, 131],
-#         # [166, 123],
-#         # [147, 127],
-#         # [136, 135],
-#         # [120, 196],
-#         # [102, 210],
-#         # [75, 208],
-#         # [61, 178],
-#     ]
-# )
 # waypoints = np.array(
 #     [
 #         [61, 178],
@@ -53,33 +36,46 @@ waypoints = np.array(
 
 
 # Extract x and y coordinates
-x = waypoints[:, 0]
-y = waypoints[:, 1]
+# x = waypoints[:, 0]
+# y = waypoints[:, 1]
 
-# # Parameterize t based on the number of waypoints
-# t = np.linspace(0, 1, len(x))
+# # # Parameterize t based on the number of waypoints
+# # t = np.linspace(0, 1, len(x))
 
-# # Create a cubic spline for x and y separately
-# spline_x = CubicSpline(t, x)
-# spline_y = CubicSpline(t, y)
+# # # Create a cubic spline for x and y separately
+# # spline_x = CubicSpline(t, x)
+# # spline_y = CubicSpline(t, y)
 
 tck, u = scipy.interpolate.splprep(waypoints.T, u=None, s=0.0, per=1)
 u_new = np.linspace(u.min(), u.max(), 1000)
 x_new, y_new = scipy.interpolate.splev(u_new, tck, der=0)
 
 
-# # Generate points along the spline using parameter t
-# t_new = np.linspace(0, 1, 500)
-# x_new = spline_x(t_new)
-# y_new = spline_y(t_new)
+# # # Generate points along the spline using parameter t
+# # t_new = np.linspace(0, 1, 500)
+# # x_new = spline_x(t_new)
+# # y_new = spline_y(t_new)
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 trajectory_directory = os.path.join(current_directory, "..", "trajectories")
 trajectory_directory = os.path.join(trajectory_directory, "race3")
 bruh = np.array([x_new, y_new])
 
+# trajectory_load_file = "race3_2.npz"
+# import os
 
-trajectory_save_file = "race3_raw_1.npz"
+# current_directory = os.path.dirname(os.path.abspath(__file__))
+# trajectory_directory = os.path.join(current_directory, "..", "trajectories", "race3")
+# trajectory_load_file = os.path.join(trajectory_directory, trajectory_load_file)
+
+# trajectory_data = np.load(trajectory_load_file)
+# data = trajectory_data["path"]
+# bruh = data
+# bruh[0, :] = bruh[0, :] * 0.05 - 2.24
+# bruh[1, :] = bruh[1, :] * 0.05 + 0.921
+
+
+trajectory_save_file = "race3.npz"
 trajectory_save_file = os.path.join(trajectory_directory, trajectory_save_file)
 np.savez(
     trajectory_save_file,
@@ -96,9 +92,9 @@ image = cv2.imread(
 
 # Plot the original waypoints and the spline
 plt.figure(figsize=(8, 6))
-plt.plot(x, y, "o", label="Waypoints")
+# plt.plot(x, y, "o", label="Waypoints")
 plt.plot(bruh[0, :], bruh[1, :], label="Spline")
-plt.imshow(image, cmap="gray", origin="lower")
+# plt.imshow(image, cmap="gray", origin="lower")
 plt.title("Spline Interpolation of Waypoints")
 plt.xlabel("X")
 plt.ylabel("Y")
