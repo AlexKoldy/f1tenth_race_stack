@@ -56,8 +56,8 @@ class GlobalPlannerNode(Node):
         # all the parameters, and increase the number at the end. This way, you
         # can save "good" trajectories
         # You shouldn't have to worry about 'reoptimize'. Keep it as 'True'
-        self.declare_parameter("alpha_min", 0.0)
-        self.declare_parameter("alpha_max", 0.0)
+        self.declare_parameter("alpha_min", 0.4)
+        self.declare_parameter("alpha_max", 0.4)
         self.declare_parameter("num_waypoints", 1000)
         self.declare_parameter("v_x_min", 2.5)
         self.declare_parameter("v_x_max", 10.0)
@@ -68,7 +68,7 @@ class GlobalPlannerNode(Node):
 
         self.declare_parameter("trajectory_load_file", "race3_new4.npz")
 
-        self.declare_parameter("trajectory_save_file", "race3_new5.npz")
+        self.declare_parameter("trajectory_save_file", "race3_inner.npz")
         self.declare_parameter("reoptimize", True)
 
         # Set up parameters
