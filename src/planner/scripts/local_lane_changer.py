@@ -11,6 +11,7 @@ from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
+from visualization_msgs.msg import Marker, MarkerArray
 
 
 class LocalLaneChanger(Node):
@@ -18,13 +19,14 @@ class LocalLaneChanger(Node):
     def __init__(self):
         super().__init__("local_lane_changer")
         self.window_size = 1
-        self.high_val = 3
+        self.high_val = 2.0
         self.gap_threshold = 2.0
         self.obstacle_width = 0.4
 
         lidarscan_topic = "/scan"
         drive_topic = "/drive"
         lidar_processed = "/lidar_scan"
+        drive_lane = "/drive_lane"
 
         # Subscribing to LIDAR
         self.subscriber_scan = self.create_subscription(
@@ -36,11 +38,14 @@ class LocalLaneChanger(Node):
         # Publishing the point cloud
         self.laserscan_publisher = self.create_publisher(LaserScan, lidar_processed, 10)
 
-        # Load waypoints
-        self.trajectory_load_file = (
-            "/home/renu/f1_10/labs/src/planner/trajectories/race3_new4.npz"
+        # Publishing a message - 1: Switch lane; 0: Stay on the same lane
+        self.drive_publisher = self.create_publisher(
+            AckermannDriveStamped, drive_lane, 10
         )
-        # current_directory = os.path.dirname(os.path.abspath(__file__))
+
+        # Load waypoints
+        self.trajectory_load_file = "/home/alko/ese6150/f1tenth_race_stack/src/planner/trajectories/race3/race3_inner.npz"
+
         self.trajectory_directory = self.trajectory_load_file
         trajectory_load_file = os.path.join(
             self.trajectory_directory, self.trajectory_load_file
@@ -48,10 +53,11 @@ class LocalLaneChanger(Node):
         trajectory_data = np.load(trajectory_load_file)
         self.path = trajectory_data["path"]
         self.velocity_profile = trajectory_data["velocity_profile"]
+        self.velocity_profile_ = trajectory_data["velocity_profile"]
 
         # Publishing the path
         self.path_topic = "/planner/global/path"
-        self.velocity_profile_topic = "planner/global/velocity_profile"
+        self.velocity_profile_topic = "/slowed_velocity_profile"
         self.path_pub = self.create_publisher(Path, self.path_topic, 10)
         self.velocity_profile_pub = self.create_publisher(
             Path, self.velocity_profile_topic, 10
@@ -62,6 +68,12 @@ class LocalLaneChanger(Node):
         odom_topic = "/ego_racecar/odom"
         self.pose_subscription = self.create_subscription(
             Odometry, odom_topic, self.pose_callback, 10
+        )
+
+        # Publishing points
+        point_markers = "/point_markers"
+        self.plot_point_publisher = self.create_publisher(
+            MarkerArray, point_markers, 10
         )
 
     def publish_trajectory(
@@ -77,26 +89,26 @@ class LocalLaneChanger(Node):
         velocity_profile_msg.header.stamp = path_msg.header.stamp
         velocity_profile_msg.header.frame_id = "map"
 
-        # # Loop through the array of points and add them
-        # # to the path message
-        # for point, velocity in zip(path.T, velocity_profile):
-        #     pose = PoseStamped()
-        #     vel = PoseStamped()
-        # 	pose.pose.position.x = point[0]
-        #     pose.pose.position.y = point[1]
-        #     vel.pose.position.x = velocity
-        #     pose.pose.orientation.w = 1.0
-        #     vel.pose.orientation.w = 1.0
-        #     pose.header.stamp = rclpy.time.Time().to_msg()
-        #     vel.header.stamp = pose.header.stamp
-        #     path_msg.poses.append(pose)
-        #     velocity_profile_msg.poses.append(vel)
+        # Loop through the array of points and add them to the path message
+        for point, velocity in zip(path.T, velocity_profile):
+            pose = PoseStamped()
+            vel = PoseStamped()
+            pose.pose.position.x = point[0]
+            pose.pose.position.y = point[1]
+            vel.pose.position.x = velocity
+            pose.pose.orientation.w = 1.0
+            vel.pose.orientation.w = 1.0
+            pose.header.stamp = rclpy.time.Time().to_msg()
+            vel.header.stamp = pose.header.stamp
+            path_msg.poses.append(pose)
+            velocity_profile_msg.poses.append(vel)
 
         # self.path_pub.publish(path_msg)
-        # self.velocity_profile_pub.publish(velocity_profile_msg)
+        self.velocity_profile_pub.publish(velocity_profile_msg)
 
     def timer_callback(self) -> None:
-        self.publish_trajectory(self.path, self.velocity_profile)
+        pass
+        # self.publish_trajectory(self.path, self.velocity_profile)
 
     def preprocess_lidar(self, ranges):
         """Preprocess the LiDAR scan array. Expert implementation includes:
@@ -163,53 +175,28 @@ class LocalLaneChanger(Node):
         preprocessed_ranges = self.preprocess_lidar(clipped_ranges)
 
         # Find closest point to LiDAR
-        closest_point_distance = np.min(preprocessed_ranges)
-        closest_point_index = np.argmin(preprocessed_ranges)
-        closest_angle = angles[closest_point_index]
+        # closest_point_distance = np.min(preprocessed_ranges)
+        # closest_point_index = np.argmin(preprocessed_ranges)
+        # closest_angle = angles[closest_point_index]
 
-        # Find the center point
+        # Find the obstacle: opponent car
         self.obs_start, self.obs_end = self.find_max_obs(preprocessed_ranges)
         self.obs_start_lidar_range = preprocessed_ranges[self.obs_start]
         self.obs_end_lidar_range = preprocessed_ranges[self.obs_end]
         best_index = self.find_best_point(
             self.obs_start, self.obs_end, preprocessed_ranges
         )
-        self.get_logger().info(
-            'farthest point at "%.2f"' % preprocessed_ranges[best_index]
-        )
+        if preprocessed_ranges[best_index] < self.high_val:
+            self.isOppCarOnRaceline = True
+        else:
+            self.isOppCarOnRaceline = False
+        # self.get_logger().info(
+        #     'farthest point at "%.2f"' % preprocessed_ranges[best_index]
+        # )
+        self.dist = preprocessed_ranges[best_index]
         steer_angle = self.angle_min + best_index * self.angle_increment
         self.angle_min = minus_90_deg
         self.angle_max = angle_90_deg
-
-    def lineLineIntersection(self, A, B, C, D):
-        # Line AB represented as a1x + b1y = c1
-        a1 = B[1] - A[1]
-        b1 = A[0] - B[0]
-        c1 = a1 * (A[0]) + b1 * (A[1])
-
-        # Line CD represented as a2x + b2y = c2
-        a2 = D[1] - C[1]
-        b2 = C[0] - D[0]
-        c2 = a2 * (C[0]) + b2 * (C[1])
-
-        determinant = a1 * b2 - a2 * b1
-
-        if determinant != 0:
-            x = (b2 * c1 - b1 * c2) / determinant
-            y = (a1 * c2 - a2 * c1) / determinant
-            return np.array([x, y])
-        return False
-
-        # msg = AckermannDriveStamped()
-        # if preprocessed_ranges[best_index] > 2:
-        # 	msg.drive.speed = 1.8 ;
-        # 	if -5< steer_angle <= 5:
-        # 		msg.drive.speed = 1.80;
-        # else:
-        # 	msg.drive.speed = 1.60 # 0.6
-        # msg.drive.steering_angle = steer_angle
-        # self.publisher.publish(msg)
-        # self.get_logger().info('Driving at "%.2f"' % msg.drive.speed)
 
         # Visualizing the lidar scan after processing
         laserscan_msg = LaserScan()
@@ -226,6 +213,54 @@ class LocalLaneChanger(Node):
         ].tolist()  # preprocessed_ranges.tolist()
         laserscan_msg.intensities = data.intensities
         self.laserscan_publisher.publish(laserscan_msg)
+
+    def plot_points(self, points):
+        marker_array = MarkerArray()
+        for i, point in enumerate(points):
+            marker = Marker()
+            marker.header.frame_id = "map"
+            marker.header.stamp = self.get_clock().now().to_msg()
+            marker.ns = "point_marker"
+            marker.id = i
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.pose.position.x = float(point[0])
+            marker.pose.position.y = float(point[1])
+            marker.pose.position.z = 0.0
+            marker.scale.x = 0.1
+            marker.scale.y = 0.1
+            marker.scale.z = 0.1
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+            marker.color.r = 0.0
+            marker.color.a = 0.0
+            marker_array.markers.append(marker)
+        return marker_array
+
+    def lineLineIntersection(self, A, B, C, D):
+        # Plot the 4 points:
+        points = np.array((A, B, C, D))
+        point_markers = self.plot_points(points)
+        self.plot_point_publisher.publish(point_markers)
+
+        # Line AB represented as a1x + b1y = c1
+        a1 = B[1] - A[1]
+        b1 = A[0] - B[0]
+        c1 = a1 * (A[0]) + b1 * (A[1])
+
+        # Line CD represented as a2x + b2y = c2
+        a2 = D[1] - C[1]
+        b2 = C[0] - D[0]
+        c2 = a2 * (C[0]) + b2 * (C[1])
+
+        determinant = a1 * b2 - a2 * b1
+
+        if determinant != 0:
+            x = (b2 * c1 - b1 * c2) / determinant
+            y = (a1 * c2 - a2 * c1) / determinant
+            return np.array([x, y])
+        else:
+            return None
 
     def closest_point_on_path(self, current_pose: np.ndarray, path: np.ndarray):
         diff = path - current_pose.reshape((2, 1))
@@ -244,67 +279,71 @@ class LocalLaneChanger(Node):
 
         # Publish Drive message
         # Check if the intersection point is on the race line:
-        # A = self.obs_start
-        # B = self.obs_end
-        # current_pose = self.pose_subscription
 
         # TODO: Get obstacle start and end in robot frame
-        self.A =
-        self.B =
-        self.obs_start_lidar_range 
-        np.sin(self.angles[self.obs_start])
-        DO THIS
+        self.A = np.array(
+            (
+                self.obs_start_lidar_range * np.cos(self.angles[self.obs_start]),
+                self.obs_start_lidar_range * np.sin(self.angles[self.obs_start]),
+            )
+        )
+
+        self.B = np.array(
+            (
+                self.obs_end_lidar_range * np.cos(self.angles[self.obs_end]),
+                self.obs_end_lidar_range * np.sin(self.angles[self.obs_end]),
+            )
+        )
 
         # Transform the target waypoint to the robot frame
-        quat = np.array(
-            [
-                self.cur_quat.w,
-                self.cur_quat.x,
-                self.cur_quat.y,
-                self.cur_quat.z,
-            ]
-        )
-        quat = quat / np.linalg.norm(quat)
-        R = tf.quaternions.quat2mat(quat)
-        # TRANSFORM BOTH GLOBAL POINTS
-        obs_start_r = HERE - self.cur_pos
-        obs_start = R[0:2, 0:2].T @ obs_start_r
-        
-		obs_end_r = AND_HERE - self.cur_pos
-        obs_end = R[0:2, 0:2].T @ obs_end_r
-        
+        self.cur_quat = self.cur_quat / np.linalg.norm(self.cur_quat)
+        R = tf.quaternions.quat2mat(self.cur_quat)
 
+        # TRANSFORM BOTH GLOBAL POINTS
+        obs_start_r = self.A - self.cur_pos
+        self.A = R[0:2, 0:2].T @ obs_start_r
+
+        obs_end_r = self.B - self.cur_pos
+        self.B = R[0:2, 0:2].T @ obs_end_r
 
         closest_idx, closest_point = self.closest_point_on_path(self.cur_pos, self.path)
-
-        for i in range(closest_idx, closest_idx + 20):
-            C = self.path[:, i]
-            D = self.path[:, i + 1]
-
-            if self.lineLineIntersection(self.A, self.B, C, D):
-                print("Switch lane")
-
         # Loop through the array of points (till x meters away):
-        # for point, velocity in zip(self.path[closest_idx: closest_idx + 20].T, self.velocity_profile):
 
-        #   pose = PoseStamped()
-        #  vel = PoseStamped()
-        #  pose.pose.position.x = point[0]
-        #  pose.pose.position.y = point[1]
-        #  vel.pose.position.x = velocity
-        #  pose.pose.orientation.w = 1.0
-        #  vel.pose.orientation.w = 1.0
-        #  pose.header.stamp = rclpy.time.Time().to_msg()
-        #  vel.header.stamp = pose.header.stamp
+        if self.isOppCarOnRaceline == True:
+            msg = AckermannDriveStamped()
+            path_rolled = np.roll(self.path, closest_idx)
+            for i in range(0, 0 + 20):
+                C = path_rolled[:, i]
+                D = path_rolled[:, i + 1]
+                # print(self.lineLineIntersection(self.A, self.B, C, D).all() != None)
+                if self.lineLineIntersection(self.A, self.B, C, D).all() != None:
+                    print("Switch lane")
+                    msg.drive.speed = 1.0
+                    self.drive_publisher.publish(msg)
+                    self.state_machine = 1
+                    break
 
-        #  C, D = point
+        else:
+            print("Go on raceline")
+            msg = AckermannDriveStamped()
+            msg.drive.speed = 0.0
+            self.drive_publisher.publish(msg)
+            self.state_machine = 0
 
-        # print(self.pose_subscription)
-        #  if (self.lineLineIntersection(A, B, C, D)):
-        #  	print("Switch lane")
-
-        # path_msg.poses.append(pose)
-        # velocity_profile_msg.poses.append(vel)
+        if self.state_machine == 1:
+            k_p = 1.25
+            v_min = np.min(self.velocity_profile)
+            v_max = np.max(self.velocity_profile)
+            slowed_velocity_profile = np.clip(
+                self.velocity_profile - k_p * (1 / self.dist), v_min, v_max
+            )
+            # print(slowed_velocity_profile[closest_idx])
+            # print(self.velocity_profile[closest_idx])
+            self.publish_trajectory(self.path, slowed_velocity_profile)
+            # self.publish_trajectory(self.path, self.velocity_profile_)
+        if self.state_machine == 0:
+            # print(self.velocity_profile[closest_idx])
+            self.publish_trajectory(self.path, self.velocity_profile)
 
 
 def main(args=None):

@@ -26,7 +26,10 @@ class GeometricControllerNode : public rclcpp::Node {
     this->declare_parameter<std::string>("controller_name", "pure_pursuit");
 
     // Declare parameter to determine sim or real
-    this->declare_parameter<std::string>("mode", "real");
+    this->declare_parameter<std::string>("mode", "sim");
+
+    // Declare parameter to determine opponent or ego racecar
+    this->declare_parameter<std::string>("car_type", "ego");
 
     // Set up controller
     if (this->get_parameter("controller_name").as_string() == "pure_pursuit") {
@@ -38,11 +41,12 @@ class GeometricControllerNode : public rclcpp::Node {
           static_cast<float>(this->get_parameter("k_p").as_double()));
     } else if (this->get_parameter("controller_name").as_string() ==
                "model_acceleration_pursuit") {
-      controller_ = std::make_unique<ModelAccelerationPursuitController>(
+      controller_ = std::make_unique<PurePursuitController>(
           static_cast<float>(this->get_parameter("alpha").as_double()),
           static_cast<float>(this->get_parameter("beta").as_double()),
           static_cast<float>(this->get_parameter("ell_min").as_double()),
-          static_cast<float>(this->get_parameter("ell_max").as_double()));
+          static_cast<float>(this->get_parameter("ell_max").as_double()),
+          static_cast<float>(this->get_parameter("k_p").as_double()));
     } else {
       // TODO: handle this
       ;
@@ -52,12 +56,20 @@ class GeometricControllerNode : public rclcpp::Node {
     // TODO: cheesing the shape here
     this->path_ = Eigen::MatrixXf::Zero(2, 1000);
     this->velocity_profile_ = Eigen::VectorXf::Zero(1000);
+    this->slowed_velocity_profile_ = Eigen::VectorXf::Zero(1000);
 
     // Set the odometry topic based off the mode
     if (this->get_parameter("mode").as_string() == "sim") {
-      this->pose_topic_ = "/ego_racecar/odom";
+      if (this->get_parameter("car_type").as_string() == "ego") {
+        this->pose_topic_ = "/ego_racecar/odom";
+        this->drive_topic_ = "/drive";
+      } else {
+        this->pose_topic_ = "/opp_racecar/odom";
+        this->drive_topic_ = "/opp_drive";
+      }
     } else if (this->get_parameter("mode").as_string() == "real") {
       this->pose_topic_ = "/pf/odom";
+      this->drive_topic_ = "/drive";
     }
 
     // Publishers, subscribers, timers
@@ -82,13 +94,20 @@ class GeometricControllerNode : public rclcpp::Node {
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(10),
         std::bind(&GeometricControllerNode::timer_callback, this));
+
+    slowed_velocity_profile_sub_ =
+        this->create_subscription<nav_msgs::msg::Path>(
+            "/slowed_velocity_profile", 10,
+            std::bind(
+                &GeometricControllerNode::slowed_velocity_profile_callback,
+                this, std::placeholders::_1));
   }
 
  private:
   // Topics
   std::string path_topic_ = "/planner/global/path";
   std::string velocity_profile_topic_ = "/planner/global/velocity_profile";
-  std::string drive_topic_ = "/drive";
+  std::string drive_topic_;
   std::string pose_topic_;
   std::string lookahead_marker_topic = "/controller/viz/lookahead_point";
 
@@ -105,13 +124,18 @@ class GeometricControllerNode : public rclcpp::Node {
       lookahead_point_marker_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
+  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr
+      slowed_velocity_profile_sub_;
+
   // Flag to wait for a path before doing calculations
   bool path_received_ = false;
   bool velocity_profile_received_ = false;
+  bool slowed_velocity_profile_received_ = false;
 
   // Path and velocity profile to set
   Eigen::MatrixXf path_;
   Eigen::VectorXf velocity_profile_;
+  Eigen::VectorXf slowed_velocity_profile_;
 
   /**
    * @brief Sets the controller parameters.
@@ -167,7 +191,7 @@ class GeometricControllerNode : public rclcpp::Node {
       velocity_profile(i) = velocity_profile_msg->poses[i].pose.position.x;
     }
 
-    // If the previous profile and new pprofile are not the same, update the
+    // If the previous profile and new profile are not the same, update the
     // controller
     if (!this->velocity_profile_.isApprox(velocity_profile)) {
       std::cout << "vel" << std::endl;
@@ -180,6 +204,24 @@ class GeometricControllerNode : public rclcpp::Node {
     this->velocity_profile_received_ = true;
   }
 
+  void slowed_velocity_profile_callback(
+      const nav_msgs::msg::Path::ConstSharedPtr slowed_velocity_profile_msg) {
+    // Find the number of waypoints
+    int num_waypoints = slowed_velocity_profile_msg->poses.size();
+
+    // Extract the longitudinal velocities from the profile
+    Eigen::VectorXf slowed_velocity_profile(num_waypoints);
+    for (int i = 0; i < num_waypoints; ++i) {
+      slowed_velocity_profile(i) =
+          slowed_velocity_profile_msg->poses[i].pose.position.x;
+    }
+
+    this->slowed_velocity_profile_ = slowed_velocity_profile;
+
+    // Set the flag to allow the controller to start working
+    this->slowed_velocity_profile_received_ = true;
+  }
+
   /**
    * @brief Handles the main control loop. All ROS2 information is converted
    * to Eigen information for computation.
@@ -187,6 +229,8 @@ class GeometricControllerNode : public rclcpp::Node {
    * containing pose information.
    */
   void pose_callback(const nav_msgs::msg::Odometry::SharedPtr pose_msg) {
+    // std::cout << "WTF" << std::endl;
+
     // Wait for a path and velocity profile to be present before running the
     // controller
     if (this->path_received_ && this->velocity_profile_received_) {
@@ -205,6 +249,19 @@ class GeometricControllerNode : public rclcpp::Node {
       std::pair<float, float> control_inputs = this->controller_->step(p, q);
       float speed = control_inputs.first;
       float steering_angle = control_inputs.second;
+
+      // TODO
+      int closest_waypoint_index =
+          this->controller_->get_closest_waypoint_index();
+      if (slowed_velocity_profile_received_ &&
+          this->get_parameter("car_type").as_string() == "ego") {
+        std::cout << closest_waypoint_index << std::endl;
+        speed = slowed_velocity_profile_(closest_waypoint_index);
+      }
+
+      if (this->get_parameter("car_type").as_string() == "opp") {
+        speed *= 0.35;
+      }
 
       // Publish the lookahead point
       this->publish_lookahead_point_marker(

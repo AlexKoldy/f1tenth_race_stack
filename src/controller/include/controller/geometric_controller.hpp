@@ -38,6 +38,8 @@ class GeometricController {
    */
   virtual Eigen::Vector2f get_lookahead_point() = 0;
 
+  virtual int get_closest_waypoint_index() = 0;
+
   /**
    * @brief Performs one full controller step, by calculating and setting
    * the lookahead point and returning the steering angle and longitudinal

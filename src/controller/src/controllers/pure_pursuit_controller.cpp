@@ -56,6 +56,10 @@ Eigen::Vector2f PurePursuitController::get_lookahead_point() {
   return this->lookahead_point_;
 }
 
+int PurePursuitController::get_closest_waypoint_index() {
+  return this->closest_waypoint_index_;
+}
+
 /**
  * @brief Performs one full controller step, by calculating and setting
  * the lookahead point and returning the steering angle and longitudinal
@@ -103,6 +107,9 @@ std::pair<float, float> PurePursuitController::step(
   // Calculate the steering angle
   float delta = this->calculate_steering_angle(p, this->lookahead_point_,
                                                R.transpose(), ell);  // [rad]
+
+  //
+  this->closest_waypoint_index_ = closest_waypoint_index;
   return std::make_pair(v_x, delta);
 }
 

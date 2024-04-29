@@ -93,7 +93,7 @@ image = cv2.imread(
 # Plot the original waypoints and the spline
 plt.figure(figsize=(8, 6))
 # plt.plot(x, y, "o", label="Waypoints")
-plt.plot(bruh[0, :], bruh[1, :], label="Spline")
+plt.plot(bruh[0, 50:150], bruh[1, 50:150], label="Spline")
 # plt.imshow(image, cmap="gray", origin="lower")
 plt.title("Spline Interpolation of Waypoints")
 plt.xlabel("X")

@@ -68,8 +68,9 @@ class TrajectoryBuilder:
         # self.velocity_profile[-10:] = self.v_x_max
         # self.velocity_profile[:65] = self.v_x_max
 
-        # FOR SECOND STRAIGHT
-        # self.velocity_profile[825:850] = self.v_x_max
+        # TODO: for wet track
+        v_max_wet = 4  # To deal with wet area of track
+        self.velocity_profile[100:200] = v_max_wet
 
         return (self.paths[-1], velocity_profile)
 

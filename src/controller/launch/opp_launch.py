@@ -19,7 +19,7 @@ def generate_launch_description() -> LaunchDescription:
                     {"k_p": 1.0},  # [m]
                     {"controller_name": "pure_pursuit"},
                     {"mode": "sim"},
-                    {"car_type": "ego"},
+                    {"car_type": "opp"},
                 ],
             ),
         ]

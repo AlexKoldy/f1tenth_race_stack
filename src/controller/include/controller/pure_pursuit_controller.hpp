@@ -42,6 +42,14 @@ class PurePursuitController : public GeometricController {
    */
   Eigen::Vector2f get_lookahead_point() override;
 
+  int get_closest_waypoint_index() override;
+
+  /**
+   * @brief TODO
+   * @return
+   */
+  int get_closest_point_index();
+
   /**
    * @brief Performs one full controller step, by calculating and setting
    * the lookahead point and returning the steering angle and longitudinal
@@ -145,6 +153,9 @@ class PurePursuitController : public GeometricController {
                                             const Eigen::MatrixXf path);
 
  private:
+  // TODO
+  int closest_waypoint_index_;
+
   /**
    * @brief Returns the curvature of the turn.
    * @param y (const float) y distance between lookahead point and robot in
