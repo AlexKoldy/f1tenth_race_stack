@@ -82,6 +82,86 @@ TODO
 
 ## Control
 ### Nonlinear Model Predictive Control
+#### Dynamic Model
+Since the vehicle moves in $\mathbb{R}^2$, we chose to use a variation of the single-track dynamic model described [here](https://www.ivanshaoportfolio.com/project-page/mpc-drifting-parking-simulation). The figure below showcases the system model with $\beta$ being the slip angle at the vehicles center of gravity. 
+
+![image](https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/8fa369ea-25f1-42c8-a9b4-f1a151e5132a)
+
+
+We define the vehicle's state as the concatenation of it's pose and it's pose derivative:
+
+$$
+\symbf{x} = \begin{bmatrix}
+    \symbf{q}^\top & \dot{\symbf{q}}^\top
+\end{bmatrix}^\top = \begin{bmatrix}
+    p\_x & p\_y & \theta & v\_x & v\_y & \omega
+\end{bmatrix}^\top
+$$
+
+where $p\_x$ and $p\_y$ represent the global position of the vehicle in $\mathbb{R}^2$, $\theta$ represents the vehicle heading (yaw), $v\_x$ and $v\_y$ represent the longitudinal and lateral velocity of the vehicle (vehicle frame), respectively, and $\omega$ represents the yaw rate of the vehicle. We define our input vector as
+
+$$
+\symbf{u} = \begin{bmatrix}
+    \delta & a\_x
+\end{bmatrix}^\top
+$$
+
+where $\delta$ is the steering angle and $a\_x$ is the longitudinal acceleration. We chose to use the steering angle as an input rather than the steering rate to reduce the state-space from $\mathbb{R}^7$ to $\mathbb{R}^6$. In order to define the vehicle dynamics, we calculate the slip angle of each tire similarly:
+
+$$
+\begin{align*}
+    \alpha\_{f} &= \arctan\left(\frac{v\_y + \omega \ell\_{f}}{v\_x}\right) - \delta\\
+    \alpha\_{r} &= \arctan\left(\frac{v\_y + \omega \ell\_{r}}{v\_x}\right)
+\end{align*}
+$$
+
+Moreover, we calculate the load on each axle $F\_z$ as
+
+$$
+\begin{align*}
+    F\_{z\_f} &= \frac{mg\ell\_r - ma\_xh\_{cog}}{\ell\_f + \ell\_r}\\
+     F\_{z\_r} &= \frac{mg\ell\_f - ma\_xh\_{cog}}{\ell\_f + \ell\_r}
+\end{align*}
+$$
+
+Using these parameters, we can compute the lateral force on each set of tires via the Pacejka Magic Formula, i.e.,
+
+$$
+F\_{y\_i} = \tilde{D}\_i \sin \Bigl( C\_i\arctan \bigl( B\_i\alpha\_i - E\_i(B\_i\alpha\_i - \arctan (B\_i\alpha\_i ) \bigr) \Bigr), 
+$$
+
+where, $i \in \{f, r\}$ and $\tilde{D} = \mu F\_z D$ and
+
+$$
+\begin{align*}
+     B &:= \text{Stiffness factor}, \\
+     C &:= \text{Shape factor}, \\
+     \tilde{D} &:= \text{Peak value}, \\
+     E &:= \text{Curvature factor}.
+\end{align*}
+$$
+
+The system dynamics are therefore defined as
+
+$$
+\dot{\symbf{x}} = f(\symbf{x}, \symbf{u}) = \begin{bmatrix}
+    v\_x \cos(\theta) - v\_y \sin(\theta) \\
+    v\_x \sin(\theta) + v\_y \cos(\theta) \\
+    \omega \\
+    a\_x - \frac{F\_{y\_{f}}}{m}\sin(\delta) + v\_y \omega \\
+    \frac{1}{m}(F\_{y\_{r}}+F\_{y\_{f}}\cos(\delta)-mv\_x\omega \\
+    \frac{1}{I\_z}(F\_{y\_{f}}\ell\_{f}\cos{\delta}-F\_{y\_{r}}\ell\_{r}
+\end{bmatrix}.
+$$
+
+We roll out and discretize our dynamics via fourth-order Runge-Kutta integration (with a refinement factor of $4$) such that
+
+$$
+\symbf{x}\_{k + 1} = \symbf{f}(\symbf{x}\_k, \symbf{u}\_k, \Delta t).
+$$
+
+#### Nonlinear Programming Problem
+
 We define our decision variables as a set of states and inputs
 
 $$
