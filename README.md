@@ -72,4 +72,8 @@ $$
 \end{align}
 $$
 
-### Velocity
+Due to approximation issues, in practice we choose a relatively small range for $\alpha$, and reoptimize $k$ times. The figure below represents three reoptimizations, with the red line being the final raceline.
+![min_kappa](https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/c15fd79f-dc7f-414d-8b52-c7586e15e75b)
+
+
+### Velocity profiling
