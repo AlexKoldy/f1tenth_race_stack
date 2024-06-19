@@ -54,7 +54,7 @@ $$
 \ddot{y}_i(1) = \ddot{y}\_{i+1}(0)
 $$
 
-These constraints can be organized into a linear system of equations $A_{eq}\symbf{x} = b_{eq}$, where $\symbf{x}$ is the vector of decision variables. 
+These constraints can be organized into a linear system of equations $A\symbf{x} = b$, where $\symbf{x}$ is the vector of decision variables. 
 
 Finally, we can set up the minimum curvature cost function. The curvature at the $i\text{th}$ shifted waypoint is approximated as
 
@@ -62,5 +62,14 @@ $$
 \kappa_i = \frac{\dot{x}_i(0)\ddot{y}_i(0) - \dot{y}_i(0)\ddot{x}_i(0)}{\left(\dot{x}(0)^2 + \dot{y}(0)^2\right)^\frac{2}{3}}
 $$
 
+The optimization problem is therefore
+
+$$
+\begin{align} 
+\min_{\alpha, a, b, c, d} \quad & \sum_{i=1}^N \kappa_i^2\\ 
+\textrm{s.t.} \quad & A\symbf{x}=b\\
+  & \alpha_{min} \leq \alpha \leq \alpha_{max}   \\
+\end{align}
+$$
 
 ### Velocity
