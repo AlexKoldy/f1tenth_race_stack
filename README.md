@@ -77,3 +77,43 @@ Due to approximation issues, in practice we choose a relatively small range for 
 
 
 ### Velocity profiling
+TODO
+
+
+## Control
+### Nonlinear Model Predictive Control
+We define our decision variables as a set of states and inputs
+
+$$
+\mathcal{X} = \\{\symbf{x}\_0, \symbf{u}\_0, \symbf{x}\_1, \symbf{u}\_1, \cdots, \symbf{x}\_{N-1},\symbf{u}\_{N-1},\symbf{x}_{N}\\}
+$$
+
+
+Using this, we set up our nonlinear programming problem as
+
+$$
+\begin{align}
+\min_{\symbf{x}, \symbf{u} \, \in \, \mathcal{X}} & \quad  \sum_{k=0}^N (\symbf{q}\_k-\symbf{q}\_{goal})^\top Q_{track} (\symbf{q}\_k-\symbf{q}\_{goal}) \\ 
+&+ \sum\_{k=0}^{N-1}\symbf{u}\_k^\top R\_{input} \symbf{u}\_k \\ 
+&+ \sum\_{k=0}^{N-2}(\symbf{u}\_{k+1} - \symbf{u}\_k)^\top R_{rate} (\symbf{u}\_{k+1} - \symbf{u}\_k) \\ 
+&+ Q\_{drift}v\_{y\_k}^2\\
+\textrm{s.t.} \quad & \symbf{x}\_{k + 1} = \symbf{f}(\symbf{x}\_k, \symbf{u}\_k, \Delta t), \\, \forall k \in \{0, \cdots, N-1\}\\
+&\symbf{x}\_0 = \hat{\symbf{x}} \\
+&\symbf{x}\_{min} \leq \symbf{x}\_k \leq  \symbf{x}\_{max}, \, \forall k \in \{1, \cdots, N\} \\
+&\symbf{u}\_{min} \leq \symbf{u}\_k \leq  \symbf{u}\_{max}, \, \forall k \in \{1, \cdots, N\}  
+\end{align}
+$$
+
+where the vehicle's estimated state $\hat{\symbf{x}}$ and goal pose $\symbf{q}_{goal}$ are passed through as parameters
+
+$$
+\mathcal{P} = \\{\hat{\symbf{x}}, \symbf{q}_{goal}\\}
+$$
+
+The cost includes: a weight on tracking the $x$, $y$ and yaw of the goal pose, where $\theta_{goal}$ is defined as the angle from the current state to the goal point, an experimental cost/reward on drifting, a weight on the inputs and a rate on the input rates for smooth control.
+
+Due to the non-convex nature of our MPC, we use CasADi and IPOPT to solve the nonlinear programming problem. To increase solve frequency, we use CasADi functions for $f(\symbf{x}, \symbf{u})$ and $\symbf{f}(\symbf{x}, \symbf{u}, \Delta t)$. We attempt to make use of CasADi's multi-threading mapping for the function associated with $\symbf{f}$. Moreover, we build CasADi functions for each of the costs. Finally, we generate and compile C code for the entire nonlinear programming problem including the IPOPT solver. 
+
+At each iteration, we pass an initial decision variable guess $\mathcal{X}\_{guess}$, the MPC parameters $\mathcal{P}$ and the constraints on the decision variables $\mathcal{X}\_{min}$ and $\mathcal{X}\_{max}$. The initial guess is warm-started with the solution to the previous iteration of the MPC. Once the optimal control problem is solved, $\symbf{u}_0^\star$ is applied to the vehicle.
+
+
