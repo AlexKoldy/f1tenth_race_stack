@@ -1,5 +1,6 @@
 ## Planning
-### Path generation
+### Minimum Curvature Raceline Optimization
+#### Path Generation
 The global raceline planner consists of a custom-built minimum curvature optimization problem. We assume that we have some original set of waypoints, i.e., waypoints along the centerline or manually created waypoints. Let's call the $i\text{th}$ waypoint $p_i$. In order to change the path's shape, we shift the position of $p_i$ along the vector normal to the path:
 
 $$
@@ -11,29 +12,29 @@ where $s_i$ is the shifted position of the waypoint, $\alpha_i$ is the shift fac
 We now parameterize $N$ splines between each shifted point. We define the $i\text{th}$ spline as a set of cubic polynomials parameterized by $t \in [0, 1]$:
 
 $$
-x_i(t) = a_{i, x}t^3 + b_{i, x}t^2 + c_{i, x}t + d_{i, x}
+x_i(t) = a_{x, i}t^3 + b_{x, i}t^2 + c_{x, i}t + d_{x, i}
 $$
 
 $$
-y_i(t) = a_{i, y}t^3 + b_{i, y}t^2 + c_{i, y}t + d_{i, y}
+y_i(t) = a_{y, i}t^3 + b_{y, i}t^2 + c_{y, i}t + d_{y, i}
 $$
 
 We apply continuity constraints, i.e.,
 
 $$
-x_i(0) = s_{i, x}
+x_i(0) = s_{x, i}
 $$
 
 $$
-y_i(0) = s_{i, y}
+y_i(0) = s_{y, i}
 $$
 
 $$
-x_i(1) = s_{i+1, x}
+x_i(1) = s_{x, i+1}
 $$
 
 $$
-y_i(1) = s_{i+1, y}
+y_i(1) = s_{y, i+1}
 $$
 
 This implies that $x_i(1) = x_{i+1}(0)$ and $y_i(1) = y_{i+1}(0)$. Finally, we consider the smoothness constraints, i.e., 
@@ -73,12 +74,67 @@ $$
 $$
 
 Due to approximation issues, in practice we choose a relatively small range for $\alpha$, and reoptimize $k$ times. The figure below represents three reoptimizations, with the red line being the final raceline.
-![min_kappa](https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/c15fd79f-dc7f-414d-8b52-c7586e15e75b)
 
+<p align="center">
+  <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/e3b7659f-b25e-4bb3-9ee5-01c71855546a" />
+</p>
 
-### Velocity profiling
-TODO
+#### Velocity Profiling
+To generate the velocity profile, we perform three passes based off of lateral (centripedal) and longitudinal acceleration ($a_y$ and $a_x$, respectively). The user has many tuning knobs for both velocity and acceleration considerations. These minimum and maximum velocities are determined via system identification and then fine tuned:
 
+$$
+\begin{align}
+v_{x, min} &:= \text{minimum longitudinal/tangential velocity}\\
+v_{x, max} &:= \text{maximum longitudinal/tangential velocity}\\
+a_{x, max}^- &:= \text{maximum longitudinal decceleration}\\
+a_{x, max}^+ &:= \text{maximum longitudinal acceleration}\\
+a_{y, max} &:= \text{maximum lateral/centripedal acceleration}\\
+\end{align}
+$$
+
+The radius of the curve is defined by 
+
+$$
+r = \frac{1}{\kappa}
+$$
+
+meaning that the centripedal acceleration formula is equivalent to
+
+$$
+a_y = \frac{v_x^2}{r} = v_x^2 \kappa.
+$$
+
+Rearranging this, we are able to determine a velocity for the car at each waypoint such that the car does not slip:
+
+$$
+v_{x, i} = \sqrt{\frac{a_{y, max}}{\kappa_i}}
+$$
+
+Each $v_{x, i}$ is then clipped between $v_{x, min}$ and v_{x, max}$. This yields an initial velocity profile that is flawed due to issues with curvature calculations at discrete points. The next two passes about the profile aim to smooth the profile. 
+
+Starting at the beginning of each rising edge of the velocity profile the velocities along the rising edge are smoothed. Firstly, the lateral acceleration at each point is
+
+$$
+a_{y, i} = v_{x, i}^2 \kappa_i
+$$
+
+The remaining potential for longitudinal acceleration is calculated as follows:
+
+$$
+a_{x, i} = a_{x, max}^+\sqrt{1 - \left(\frac{a_{y, i}}{a_{y, max}}\right)^2}
+$$
+
+Finally, the velocity at the next waypoint is calculated assuming constant longitudinal acceleration over the distance $d_i = |s_{i+1}-s_i|$:
+
+$$
+v_{x, i+1} = \sqrt{v_{x, i}^2 + 2a_{x, i}d_i}
+$$
+
+This process is repeated backwards starting at the end of each falling edge and using $a_{x, max}^-$ to generate the deceleration portion of the profile. 
+
+<p align="center">
+  <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/d54f5357-f8e3-49f7-80fa-34e07644fa60" />
+</p>
 
 ## Control
 ### Nonlinear Model Predictive Control
