@@ -252,4 +252,8 @@ Due to the non-convex nature of our MPC, we use CasADi and IPOPT to solve the no
 
 At each iteration, we pass an initial decision variable guess $\mathcal{X}\_{guess}$, the MPC parameters $\mathcal{P}$ and the constraints on the decision variables $\mathcal{X}\_{min}$ and $\mathcal{X}\_{max}$. The initial guess is warm-started with the solution to the previous iteration of the MPC. Once the optimal control problem is solved, $\symbf{u}_0^\star$ is applied to the vehicle.
 
+<p align="center">
+  <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/1e840d31-eb0a-4740-979d-795d420ca73f" />
+</p>
+
 
