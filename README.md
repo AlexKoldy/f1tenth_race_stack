@@ -110,7 +110,7 @@ $$
 v_{x, i} = \sqrt{\frac{a_{y, max}}{\kappa_i}}
 $$
 
-Each $v_{x, i}$ is then clipped between $v_{x, min}$ and v_{x, max}$. This yields an initial velocity profile that is flawed due to issues with curvature calculations at discrete points. The next two passes about the profile aim to smooth the profile. 
+Each $v_{x, i}$ is then clipped between $v_{x, min}$ and $v_{x, max}$. This yields an initial velocity profile that is flawed due to issues with curvature calculations at discrete points. The next two passes about the profile aim to smooth the profile. 
 
 Starting at the beginning of each rising edge of the velocity profile the velocities along the rising edge are smoothed. Firstly, the lateral acceleration at each point is
 
@@ -229,14 +229,14 @@ Using this, we set up our nonlinear programming problem as
 
 $$
 \begin{align}
-\min_{\symbf{x}, \symbf{u} \, \in \, \mathcal{X}} & \quad  \sum_{k=0}^N (\symbf{q}\_k-\symbf{q}\_{goal})^\top Q_{track} (\symbf{q}\_k-\symbf{q}\_{goal}) \\ 
+\min_{\symbf{x}, \symbf{u} \\, \in \\, \mathcal{X}} & \quad  \sum_{k=0}^N (\symbf{q}\_k-\symbf{q}\_{goal})^\top Q_{track} (\symbf{q}\_k-\symbf{q}\_{goal}) \\ 
 &+ \sum\_{k=0}^{N-1}\symbf{u}\_k^\top R\_{input} \symbf{u}\_k \\ 
 &+ \sum\_{k=0}^{N-2}(\symbf{u}\_{k+1} - \symbf{u}\_k)^\top R_{rate} (\symbf{u}\_{k+1} - \symbf{u}\_k) \\ 
 &+ Q\_{drift}v\_{y\_k}^2\\
 \textrm{s.t.} \quad & \symbf{x}\_{k + 1} = \symbf{f}(\symbf{x}\_k, \symbf{u}\_k, \Delta t), \\, \forall k \in \{0, \cdots, N-1\}\\
 &\symbf{x}\_0 = \hat{\symbf{x}} \\
-&\symbf{x}\_{min} \leq \symbf{x}\_k \leq  \symbf{x}\_{max}, \, \forall k \in \{1, \cdots, N\} \\
-&\symbf{u}\_{min} \leq \symbf{u}\_k \leq  \symbf{u}\_{max}, \, \forall k \in \{1, \cdots, N\}  
+&\symbf{x}\_{min} \leq \symbf{x}\_k \leq  \symbf{x}\_{max}, \\, \forall k \in \{1, \cdots, N\} \\
+&\symbf{u}\_{min} \leq \symbf{u}\_k \leq  \symbf{u}\_{max}, \\, \forall k \in \{1, \cdots, N\}  
 \end{align}
 $$
 
