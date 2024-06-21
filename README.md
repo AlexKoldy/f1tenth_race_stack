@@ -1,7 +1,8 @@
 # Autonomous Race Car
-<p align="center">
-  <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/a6299612-9975-4d07-9407-eebc94b8a862" />
-</p>
+<div style="display: flex; align-items: center;">
+    <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/a6299612-9975-4d07-9407-eebc94b8a862f" height="415" alt="First GIF">
+    <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/1e840d31-eb0a-4740-979d-795d420ca73f" height="415" alt="Second GIF">
+</div>
 
 ## Planning
 ### Minimum Curvature Raceline Optimization
@@ -257,8 +258,6 @@ Due to the non-convex nature of our MPC, we use CasADi and IPOPT to solve the no
 
 At each iteration, we pass an initial decision variable guess $\mathcal{X}\_{guess}$, the MPC parameters $\mathcal{P}$ and the constraints on the decision variables $\mathcal{X}\_{min}$ and $\mathcal{X}\_{max}$. The initial guess is warm-started with the solution to the previous iteration of the MPC. Once the optimal control problem is solved, $\symbf{u}_0^\star$ is applied to the vehicle.
 
-<p align="center">
-  <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/1e840d31-eb0a-4740-979d-795d420ca73f" />
-</p>
+
 
 
