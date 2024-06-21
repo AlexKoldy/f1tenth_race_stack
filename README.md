@@ -1,3 +1,8 @@
+# Autonomous Race Car
+<p align="center">
+  <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/a6299612-9975-4d07-9407-eebc94b8a862" />
+</p>
+
 ## Planning
 ### Minimum Curvature Raceline Optimization
 #### Path Generation
