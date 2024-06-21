@@ -239,7 +239,7 @@ $$
 &+ \sum\_{k=0}^{N-1}\symbf{u}\_k^\top R\_{input} \symbf{u}\_k \\ 
 &+ \sum\_{k=0}^{N-2}(\symbf{u}\_{k+1} - \symbf{u}\_k)^\top R_{rate} (\symbf{u}\_{k+1} - \symbf{u}\_k) \\ 
 &+ Q\_{drift}v\_{y, k}^2\\
-\textrm{s.t.} \quad & \symbf{x}\_{k + 1} = \symbf{f}(\symbf{x}\_k, \symbf{u}\_k, \Delta t), \\, \forall k \in \{0, \cdots, N-1\}\\
+\textrm{s.t.} & \quad  \symbf{x}\_{k + 1} = \symbf{f}(\symbf{x}\_k, \symbf{u}\_k, \Delta t), \\, \forall k \in \{0, \cdots, N-1\}\\
 &\symbf{x}\_0 = \hat{\symbf{x}} \\
 &\symbf{x}\_{min} \leq \symbf{x}\_k \leq  \symbf{x}\_{max}, \\, \forall k \in \{1, \cdots, N\} \\
 &\symbf{u}\_{min} \leq \symbf{u}\_k \leq  \symbf{u}\_{max}, \\, \forall k \in \{1, \cdots, N\}  
