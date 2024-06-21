@@ -181,15 +181,15 @@ Moreover, we calculate the load on each axle $F\_z$ as
 
 $$
 \begin{align*}
-    F\_{z\_f} &= \frac{mg\ell\_r - ma\_xh\_{cog}}{\ell\_f + \ell\_r}\\
-     F\_{z\_r} &= \frac{mg\ell\_f - ma\_xh\_{cog}}{\ell\_f + \ell\_r}
+    F\_{z, f} &= \frac{mg\ell\_r - ma\_xh\_{cog}}{\ell\_f + \ell\_r}\\
+     F\_{z, r} &= \frac{mg\ell\_f - ma\_xh\_{cog}}{\ell\_f + \ell\_r}
 \end{align*}
 $$
 
 Using these parameters, we can compute the lateral force on each set of tires via the Pacejka Magic Formula, i.e.,
 
 $$
-F\_{y\_i} = \tilde{D}\_i \sin \Bigl( C\_i\arctan \bigl( B\_i\alpha\_i - E\_i(B\_i\alpha\_i - \arctan (B\_i\alpha\_i ) \bigr) \Bigr), 
+F\_{y, i} = \tilde{D}\_i \sin \Bigl( C\_i\arctan \bigl( B\_i\alpha\_i - E\_i(B\_i\alpha\_i - \arctan (B\_i\alpha\_i ) \bigr) \Bigr), 
 $$
 
 where, $i \in \{f, r\}$ and $\tilde{D} = \mu F\_z D$ and
@@ -210,9 +210,9 @@ $$
     v\_x \cos(\theta) - v\_y \sin(\theta) \\
     v\_x \sin(\theta) + v\_y \cos(\theta) \\
     \omega \\
-    a\_x - \frac{F\_{y\_{f}}}{m}\sin(\delta) + v\_y \omega \\
-    \frac{1}{m}(F\_{y\_{r}}+F\_{y\_{f}}\cos(\delta)-mv\_x\omega \\
-    \frac{1}{I\_z}(F\_{y\_{f}}\ell\_{f}\cos{\delta}-F\_{y\_{r}}\ell\_{r}
+    a\_x - \frac{F\_{y, f}}{m}\sin(\delta) + v\_y \omega \\
+    \frac{1}{m}(F\_{y, r}+F\_{y, f}\cos(\delta)-mv\_x\omega \\
+    \frac{1}{I\_z}(F\_{y, f}\ell\_{f}\cos{\delta}-F\_{y, r}\ell\_{r}
 \end{bmatrix}.
 $$
 
@@ -238,7 +238,7 @@ $$
 \min_{\symbf{x}, \symbf{u} \\, \in \\, \mathcal{X}} & \quad  \sum_{k=0}^N (\symbf{q}\_k-\symbf{q}\_{goal})^\top Q_{track} (\symbf{q}\_k-\symbf{q}\_{goal}) \\ 
 &+ \sum\_{k=0}^{N-1}\symbf{u}\_k^\top R\_{input} \symbf{u}\_k \\ 
 &+ \sum\_{k=0}^{N-2}(\symbf{u}\_{k+1} - \symbf{u}\_k)^\top R_{rate} (\symbf{u}\_{k+1} - \symbf{u}\_k) \\ 
-&+ Q\_{drift}v\_{y\_k}^2\\
+&+ Q\_{drift}v\_{y, k}^2\\
 \textrm{s.t.} \quad & \symbf{x}\_{k + 1} = \symbf{f}(\symbf{x}\_k, \symbf{u}\_k, \Delta t), \\, \forall k \in \{0, \cdots, N-1\}\\
 &\symbf{x}\_0 = \hat{\symbf{x}} \\
 &\symbf{x}\_{min} \leq \symbf{x}\_k \leq  \symbf{x}\_{max}, \\, \forall k \in \{1, \cdots, N\} \\
