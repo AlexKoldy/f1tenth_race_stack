@@ -1,7 +1,7 @@
 # Autonomous Race Car
 <div style="display: flex; align-items: center;">
-    <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/a6299612-9975-4d07-9407-eebc94b8a862f" height="415" alt="First GIF">
-    <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/1e840d31-eb0a-4740-979d-795d420ca73f" height="415" alt="Second GIF">
+    <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/a6299612-9975-4d07-9407-eebc94b8a862f" height="315" alt="First GIF">
+    <img src="https://github.com/AlexKoldy/f1tenth_race_stack/assets/52255127/1e840d31-eb0a-4740-979d-795d420ca73f" height="315" alt="Second GIF">
 </div>
 
 ## Planning
